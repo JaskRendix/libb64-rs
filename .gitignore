@@ -1,0 +1,19 @@
+# === Rust build artifacts ===
+/target/
+**/target/
+
+# === Cargo ===
+Cargo.lock
+
+# === Rust compiler backups ===
+*.rs.bk
+
+# === Temporary files ===
+*.tmp
+*.temp
+
+# === Test output ===
+/test-output/
+
+# === Core dumps ===
+core

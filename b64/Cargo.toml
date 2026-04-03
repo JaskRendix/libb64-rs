@@ -1,0 +1,16 @@
+[package]
+name = "b64"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rayon = "1.10"
+
+[dev-dependencies]
+criterion = "0.5"
+memmap2 = "0.9"
+rand = "0.8"
+
+[[bench]]
+name = "b64_bench"
+harness = false
