@@ -1,24 +1,26 @@
-# **b64 — Base64 Encoding/Decoding in Rust**
+# b64 — Base64 Encoding and Decoding in Rust
 
-> ⚠️ **Status:** This crate is **not yet published on crates.io**.  
-> To use it today, depend on it via Git or build the workspace locally.
+A clear and portable Base64 implementation written in safe Rust.  
+Includes in‑memory routines, streaming interfaces, optional parallel helpers, a command‑line tool, and example binaries.
 
-A clear, portable, and well‑tested Base64 implementation written in safe Rust.  
-Includes in‑memory routines, streaming interfaces, optional parallel helpers, a CLI tool, and example binaries.
+This crate is not yet published on crates.io.  
+Use it via Git or build the workspace locally.
 
 ---
 
-## **Features**
-- In‑memory encode/decode (encode/decode)
-- Streaming encode/decode (streaming API)
+## Features
+
+- In‑memory encode and decode
+- Streaming encode and decode
 - Optional parallel routines
-- CLI tool (`base64-cli`)
+- Command‑line tool (`base64-cli`)
 - Example binaries
-- Benchmarks (see `BENCHMARKS.md`)
+- Benchmarks
 
 ---
 
-## **Workspace Layout**
+## Workspace Layout
+
 This repository is a Cargo workspace containing:
 
 - `b64/` — the library  
@@ -33,9 +35,9 @@ cargo build --workspace
 
 ---
 
-## **Using the Library**
+## Using the Library
 
-Since the crate is **not yet on crates.io**, use a Git dependency:
+Since the crate is not on crates.io, use a Git dependency:
 
 ```toml
 [dependencies]
@@ -44,7 +46,7 @@ b64 = { git = "https://github.com/your/repo.git" }
 
 Or build locally.
 
-### **In‑memory API**
+### In‑memory API
 
 ```rust
 use b64::{encode_to_string, decode_to_vec};
@@ -53,7 +55,7 @@ let encoded = encode_to_string(b"hello");
 let decoded = decode_to_vec(&encoded).unwrap();
 ```
 
-### **Streaming API**
+### Streaming API
 
 ```rust
 use b64::encode_reader_to_writer;
@@ -66,29 +68,78 @@ encode_reader_to_writer(&mut input, &mut output, None)?;
 
 ---
 
-## **CLI Tool**
+## Command‑Line Tool
 
-Build the CLI tool:
+Build the CLI:
 
 ```
 cargo build --release -p base64-cli
 ```
 
-Encode:
+### Encode
 
 ```
-base64-cli -e input.bin output.b64
+base64-cli encode --input input.bin --output output.b64
 ```
 
-Decode:
+Use stdin and stdout:
 
 ```
-base64-cli -d input.b64 output.bin
+cat input.bin | base64-cli encode --wrap 76 > out.b64
+```
+
+Enable parallel mode:
+
+```
+base64-cli encode --parallel --input in.bin --output out.b64
+```
+
+### Decode
+
+```
+base64-cli decode --input input.b64 --output output.bin
+```
+
+Use stdin and stdout:
+
+```
+cat input.b64 | base64-cli decode > out.bin
+```
+
+Parallel decode:
+
+```
+base64-cli decode --parallel --input in.b64 --output out.bin
+```
+
+### Check mode
+
+Validate Base64 without writing output:
+
+```
+base64-cli decode --check --input file.b64
+```
+
+Exit code is nonzero on invalid input.
+
+### CLI Options
+
+```
+USAGE:
+    base64-cli encode [OPTIONS]
+    base64-cli decode [OPTIONS]
+
+OPTIONS:
+    -i, --input <FILE>       Input file or "-" for stdin
+    -o, --output <FILE>      Output file or "-" for stdout
+        --wrap <N>           Wrap output every N characters (0 disables wrap)
+        --parallel           Use SIMD parallel encoder or decoder
+        --check              Validate Base64 input without writing output
 ```
 
 ---
 
-## **Examples**
+## Examples
 
 Run example binaries:
 
@@ -99,7 +150,7 @@ cargo run --example decode_file -- input.b64 out.bin
 
 ---
 
-## **Tests & Benchmarks**
+## Tests and Benchmarks
 
 Run tests:
 
@@ -117,7 +168,7 @@ Benchmark results are in `BENCHMARKS.md`.
 
 ---
 
-## **Platform Support**
+## Platform Support
 
 Tested on:
 
@@ -125,11 +176,11 @@ Tested on:
 - Windows 10 (MSVC)
 - macOS Ventura
 
-Portable and requires only stable Rust.
+Requires stable Rust.
 
 ---
 
-## **License**
+## License
 
-Released into the **Public Domain**.  
+Released into the Public Domain.  
 See `LICENSE.md`.
