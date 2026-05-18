@@ -22,7 +22,7 @@ All results come from `cargo bench`.
 
 | Operation | Time | Throughput |
 |----------|------|------------|
-| encode_to_string | 110–117 ms | **146–156 MiB/s** |
+| encode_to_string | 104–110 ms | **158–164 MiB/s** |
 
 ---
 
@@ -30,7 +30,7 @@ All results come from `cargo bench`.
 
 | Operation | Time | Throughput |
 |----------|------|------------|
-| decode_to_vec | 129–135 ms | **127–132 MiB/s** |
+| decode_to_vec | 118–119 ms | **144–145 MiB/s** |
 
 ---
 
@@ -40,13 +40,13 @@ All results come from `cargo bench`.
 
 | Time | Throughput |
 |------|------------|
-| 359–377 ms | **45–48 MiB/s** |
+| 377–390 ms | **43–45 MiB/s** |
 
 ### Buffered (128 KiB)
 
 | Time | Throughput |
 |------|------------|
-| 351–368 ms | **46–49 MiB/s** |
+| 365–377 ms | **45–47 MiB/s** |
 
 ---
 
@@ -56,13 +56,13 @@ All results come from `cargo bench`.
 
 | Time | Throughput |
 |------|------------|
-| 300–313 ms | **54–57 MiB/s** |
+| 332–342 ms | **50–51 MiB/s** |
 
 ### Buffered (128 KiB)
 
 | Time | Throughput |
 |------|------------|
-| 300–314 ms | **55–57 MiB/s** |
+| 294–307 ms | **55–58 MiB/s** |
 
 ---
 
@@ -72,13 +72,13 @@ All results come from `cargo bench`.
 
 | Time | Throughput |
 |------|------------|
-| 115–119 ms | **144–149 MiB/s** |
+| 110–112 ms | **152–154 MiB/s** |
 
 ### Decode (mmap)
 
 | Time | Throughput |
 |------|------------|
-| 121–122 ms | **141 MiB/s** |
+| 118–118.6 ms | **144–145 MiB/s** |
 
 ---
 
@@ -88,44 +88,61 @@ All results come from `cargo bench`.
 
 | Time | Throughput |
 |------|------------|
-| 401–407 ms | **42–43 MiB/s** |
+| 11.13–11.36 ms | **1.47–1.50 GiB/s** |
 
 ### Decode (parallel)
 
 | Time | Throughput |
 |------|------------|
-| 672–678 ms | **25–26 MiB/s** |
+| 74.19–74.55 ms | **230–231 MiB/s** |
 
-Parallel performance is slower than serial.  
-Base64 is memory‑bound and does not scale across threads.
+Parallel encode is fast due to AVX2 and Rayon.  
+Parallel decode is slower because decode has more dependency chains.
 
 ---
 
-## 7. Encode + Decode Loop (50×)
+## 7. Encode + Decode Roundtrip (in‑memory)
+
+| Operation | Time | Throughput |
+|----------|-------|------------|
+| encode_then_decode | 225–226 ms | **~76 MiB/s** |
+
+---
+
+## 8. Parallel Roundtrip
+
+| Operation | Time | Throughput |
+|----------|-------|------------|
+| parallel_encode_then_decode | 107–110 ms | **~155–160 MiB/s** |
+
+Parallel decode dominates the cost.
+
+---
+
+## 9. Scalar vs Parallel Comparison
+
+| Operation | Time | Throughput |
+|----------|-------|------------|
+| scalar_encode | 106–110 ms | **155–160 MiB/s** |
+| parallel_encode | 11.11–11.26 ms | **1.49–1.50 GiB/s** |
+
+Parallel encode is roughly **9× faster**.
+
+---
+
+## 10. Encode + Decode Loop (50×)
 
 This benchmark matches the original libb64 method.
 
 | Operation | Time |
 |----------|-------|
-| encode+decode 50× | **11.55–12.07 s** |
+| encode+decode 50× | **11.31–11.36 s** |
 
 ### Throughput calculation
 
-Total data processed per iteration:
-
 ```
-50 × 18 MB encode
-50 × 18 MB decode
-= 900 MB
+900 MB / 11.33 s ≈ 79.4 MB/s
 ```
-
-Throughput:
-
-```
-900 MB / 11.78 s ≈ 76.4 MB/s
-```
-
-This includes both encode and decode in one loop.
 
 ---
 
@@ -133,32 +150,32 @@ This includes both encode and decode in one loop.
 
 | Operation | Throughput |
 |-----------|------------|
-| Encode (in‑memory) | **~150 MiB/s** |
-| Decode (in‑memory) | **~130 MiB/s** |
-| Encode (file) | 46–49 MiB/s |
-| Decode (file) | 55–57 MiB/s |
-| Encode (mmap) | 144–149 MiB/s |
-| Decode (mmap) | 141 MiB/s |
-| Encode (parallel) | 42–43 MiB/s |
-| Decode (parallel) | 25–26 MiB/s |
-| Encode+Decode loop (50×) | **~76 MB/s** |
+| Encode (in‑memory) | **~160 MiB/s** |
+| Decode (in‑memory) | **~145 MiB/s** |
+| Encode (file) | 45–47 MiB/s |
+| Decode (file) | 55–58 MiB/s |
+| Encode (mmap) | 152–154 MiB/s |
+| Decode (mmap) | 144–145 MiB/s |
+| Encode (parallel) | **1.49 GiB/s** |
+| Decode (parallel) | 230–231 MiB/s |
+| Roundtrip (scalar) | **~76 MiB/s** |
+| Roundtrip (parallel) | **~158 MiB/s** |
+| Encode+Decode loop (50×) | **~79 MB/s** |
 
 ---
 
 # Conclusion
 
-- The serial Rust implementation reaches **~150 MiB/s** for encoding and **~130 MiB/s** for decoding in memory.  
-- File I/O limits throughput to **45–57 MiB/s**.  
+- The scalar Rust implementation reaches **~160 MiB/s** for encoding and **~145 MiB/s** for decoding.  
+- File I/O limits throughput to **45–58 MiB/s**.  
 - Memory‑mapped I/O matches in‑memory performance.  
-- The parallel version is slower due to overhead and poor scaling for Base64 workloads.  
-- The encode+decode loop processes **900 MB in ~12 s**, giving **~76 MB/s** combined throughput.  
+- Parallel encode reaches **~1.5 GiB/s** using AVX2 and Rayon.  
+- Parallel decode reaches **~230 MiB/s**.  
+- Combined encode+decode throughput is **~76–80 MB/s**.  
 
 ---
 
 ## Comparison with original C libb64
-
-The original libb64 benchmark (2010) encoded and decoded an 18 MB file 50 times.  
-Total data processed per run: 900 MB.
 
 ### Original C results (Pentium M @ 2 GHz)
 
@@ -172,13 +189,13 @@ Total data processed per run: 900 MB.
 
 | Operation | Time | Throughput |
 |-----------|------|------------|
-| encode+decode 50× | 11.55–12.07 s | ~76 MB/s |
+| encode+decode 50× | 11.31–11.36 s | ~79 MB/s |
 
 ### Summary
 
-- Rust libb64: ~76 MB/s  
-- C libb64‑1.2: 31.7 MB/s  
-- coreutils base64: 24.8 MB/s  
-- fourmilab base64: 8.7 MB/s  
+- Rust libb64: **~79 MB/s**  
+- C libb64‑1.2: **31.7 MB/s**  
+- coreutils base64: **24.8 MB/s**  
+- fourmilab base64: **8.7 MB/s**  
 
 The Rust implementation is faster than the original C version on a per‑core basis.

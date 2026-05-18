@@ -78,7 +78,6 @@ fn bench_encode_file(c: &mut Criterion) {
 fn bench_decode_file(c: &mut Criterion) {
     ensure_bigfile();
 
-    // Pre‑encode once
     {
         let mut input = File::open("bigfile.bin").unwrap();
         let mut output = File::create("out.b64").unwrap();
@@ -169,6 +168,68 @@ fn bench_parallel(c: &mut Criterion) {
     group.finish();
 }
 
+//
+// New: encode + decode roundtrip (in‑memory)
+//
+fn bench_encode_decode_roundtrip(c: &mut Criterion) {
+    let data = vec![42u8; FILE_SIZE];
+
+    let mut group = c.benchmark_group("encode_decode_roundtrip");
+    group.throughput(Throughput::Bytes(FILE_SIZE as u64));
+
+    group.bench_function("encode_then_decode", |b| {
+        b.iter(|| {
+            let encoded = encode_to_string(&data);
+            let _decoded = decode_to_vec(&encoded).unwrap();
+        });
+    });
+
+    group.finish();
+}
+
+//
+// New: parallel encode + decode roundtrip
+//
+fn bench_parallel_roundtrip(c: &mut Criterion) {
+    let data = vec![42u8; FILE_SIZE];
+
+    let mut group = c.benchmark_group("parallel_roundtrip");
+    group.throughput(Throughput::Bytes(FILE_SIZE as u64));
+
+    group.bench_function("parallel_encode_then_decode", |b| {
+        b.iter(|| {
+            let encoded = encode_parallel(&data);
+            let _decoded = decode_parallel(&encoded).unwrap();
+        });
+    });
+
+    group.finish();
+}
+
+//
+// New: scalar vs parallel comparison
+//
+fn bench_scalar_vs_parallel(c: &mut Criterion) {
+    let data = vec![42u8; FILE_SIZE];
+
+    let mut group = c.benchmark_group("scalar_vs_parallel");
+    group.throughput(Throughput::Bytes(FILE_SIZE as u64));
+
+    group.bench_function("scalar_encode", |b| {
+        b.iter(|| {
+            let _ = encode_to_string(&data);
+        });
+    });
+
+    group.bench_function("parallel_encode", |b| {
+        b.iter(|| {
+            let _ = encode_parallel(&data);
+        });
+    });
+
+    group.finish();
+}
+
 fn bench_encode_decode_loop(c: &mut Criterion) {
     ensure_bigfile();
 
@@ -200,6 +261,9 @@ criterion_group!(
     bench_encode_mmap,
     bench_decode_mmap,
     bench_parallel,
+    bench_encode_decode_roundtrip,
+    bench_parallel_roundtrip,
+    bench_scalar_vs_parallel,
     bench_encode_decode_loop,
 );
 
