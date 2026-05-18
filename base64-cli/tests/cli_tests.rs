@@ -155,3 +155,159 @@ fn roundtrip_stdin() {
         .success()
         .stdout("The quick brown fox");
 }
+
+#[test]
+fn parallel_roundtrip_stdin() {
+    let mut encode = Command::cargo_bin("base64-cli").unwrap();
+    let encoded = encode
+        .arg("encode")
+        .arg("--parallel")
+        .write_stdin("parallel test 123")
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+
+    let mut decode = Command::cargo_bin("base64-cli").unwrap();
+    decode
+        .arg("decode")
+        .arg("--parallel")
+        .write_stdin(encoded)
+        .assert()
+        .success()
+        .stdout("parallel test 123");
+}
+
+#[test]
+fn decode_check_valid() {
+    let mut cmd = Command::cargo_bin("base64-cli").unwrap();
+
+    cmd.arg("decode")
+        .arg("--check")
+        .write_stdin("aGVsbG8=")
+        .assert()
+        .success()
+        .stdout("");
+}
+
+#[test]
+fn decode_check_invalid() {
+    let mut cmd = Command::cargo_bin("base64-cli").unwrap();
+
+    cmd.arg("decode")
+        .arg("--check")
+        .write_stdin("not_base64!!")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("Decode error"));
+}
+
+#[test]
+fn decode_with_whitespace() {
+    let mut cmd = Command::cargo_bin("base64-cli").unwrap();
+
+    cmd.arg("decode")
+        .write_stdin("aG Vs bG 8g d2 9y bG Q=")
+        .assert()
+        .success()
+        .stdout("hello world");
+}
+
+#[test]
+fn decode_invalid_padding_too_much() {
+    let mut cmd = Command::cargo_bin("base64-cli").unwrap();
+
+    cmd.arg("decode")
+        .write_stdin("abcd===")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("Decode error"));
+}
+
+#[test]
+fn decode_invalid_padding_middle() {
+    let mut cmd = Command::cargo_bin("base64-cli").unwrap();
+
+    cmd.arg("decode")
+        .write_stdin("ab=cd")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("Decode error"));
+}
+
+#[test]
+fn decode_parallel_invalid() {
+    let mut cmd = Command::cargo_bin("base64-cli").unwrap();
+
+    cmd.arg("decode")
+        .arg("--parallel")
+        .write_stdin("###")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("Decode error"));
+}
+
+#[test]
+fn encode_large_stdin() {
+    let input = "A".repeat(20000);
+
+    let mut cmd = Command::cargo_bin("base64-cli").unwrap();
+    cmd.arg("encode")
+        .write_stdin(input) // <-- FIXED
+        .assert()
+        .success()
+        .stdout(predicate::str::is_match("^[A-Za-z0-9+/=\\n]+$").unwrap());
+}
+
+#[test]
+fn encode_wrap_no_trailing_newline() {
+    let mut cmd = Command::cargo_bin("base64-cli").unwrap();
+
+    let out = cmd
+        .arg("encode")
+        .arg("--wrap")
+        .arg("4")
+        .write_stdin("hello")
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+
+    assert!(!out.ends_with(b"\n"));
+}
+
+#[test]
+fn decode_parallel_empty() {
+    let mut cmd = Command::cargo_bin("base64-cli").unwrap();
+
+    cmd.arg("decode")
+        .arg("--parallel")
+        .write_stdin("")
+        .assert()
+        .success()
+        .stdout("");
+}
+
+#[test]
+fn encode_binary_data() {
+    let mut input = NamedTempFile::new().unwrap();
+    input.write_all(&[0, 159, 255, 10, 33]).unwrap();
+
+    let mut output = NamedTempFile::new().unwrap();
+
+    let mut cmd = Command::cargo_bin("base64-cli").unwrap();
+    cmd.arg("encode")
+        .arg("--input")
+        .arg(input.path())
+        .arg("--output")
+        .arg(output.path())
+        .assert()
+        .success();
+
+    let mut encoded = String::new();
+    output.read_to_string(&mut encoded).unwrap();
+
+    assert_eq!(encoded.trim(), "AJ//CiE=");
+}
