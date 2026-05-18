@@ -11,7 +11,6 @@ pub struct Encoder {
     pub step: EncodeStep,
     pub result: u8,
     pub chars_per_line: Option<usize>,
-    wrapped: bool,
     line_pos: usize,
 }
 
@@ -21,22 +20,21 @@ impl Encoder {
             step: EncodeStep::A,
             result: 0,
             chars_per_line,
-            wrapped: false,
             line_pos: 0,
         }
     }
 
     #[inline]
-    fn encode_value(v: u8) -> char {
+    fn encode_value(v: u8) -> u8 {
         const TABLE: &[u8; 64] =
             b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-        TABLE[v as usize] as char
+        TABLE[v as usize]
     }
 
     #[inline]
-    fn push_char(&mut self, out: &mut String, c: char) {
+    fn push_char(&mut self, out: &mut String, c: u8) {
         self.write_break(out);
-        out.push(c);
+        out.push(c as char);
         self.line_pos += 1;
     }
 
@@ -46,10 +44,7 @@ impl Encoder {
         loop {
             match self.step {
                 EncodeStep::A => {
-                    let b = match iter.next() {
-                        None => return,
-                        Some(b) => b,
-                    };
+                    let Some(b) = iter.next() else { return };
                     let v = (b >> 2) & 0b0011_1111;
                     self.push_char(out, Self::encode_value(v));
                     self.result = (b & 0b0000_0011) << 4;
@@ -57,10 +52,7 @@ impl Encoder {
                 }
 
                 EncodeStep::B => {
-                    let b = match iter.next() {
-                        None => return,
-                        Some(b) => b,
-                    };
+                    let Some(b) = iter.next() else { return };
                     let v = self.result | ((b >> 4) & 0b0000_1111);
                     self.push_char(out, Self::encode_value(v));
                     self.result = (b & 0b0000_1111) << 2;
@@ -68,10 +60,7 @@ impl Encoder {
                 }
 
                 EncodeStep::C => {
-                    let b = match iter.next() {
-                        None => return,
-                        Some(b) => b,
-                    };
+                    let Some(b) = iter.next() else { return };
                     let v = self.result | ((b >> 6) & 0b0000_0011);
                     self.push_char(out, Self::encode_value(v));
 
@@ -90,7 +79,7 @@ impl Encoder {
 
             EncodeStep::B => {
                 self.push_char(out, Self::encode_value(self.result));
-                out.push('='); // do NOT wrap padding
+                out.push('=');
                 out.push('=');
                 self.line_pos += 2;
             }
@@ -102,11 +91,11 @@ impl Encoder {
             }
         }
 
-        if self.wrapped {
-            out.push('\n');
-        }
+        // IMPORTANT: do NOT add a trailing newline.
+        // Wrapping is handled only inside push_char() via write_break().
 
         self.step = EncodeStep::A;
+        self.line_pos = 0;
     }
 
     #[inline]
@@ -115,7 +104,6 @@ impl Encoder {
             if self.line_pos >= n {
                 out.push('\n');
                 self.line_pos = 0;
-                self.wrapped = true;
             }
         }
     }
@@ -143,8 +131,11 @@ pub fn encode_reader_to_writer<R: Read, W: Write>(
         if n == 0 {
             break;
         }
+
         enc.encode_block(&buf[..n], &mut out);
-        if out.len() > 4096 {
+
+        // Flush only at line boundaries or when buffer is large
+        if out.len() >= 4096 {
             writer.write_all(out.as_bytes())?;
             out.clear();
         }

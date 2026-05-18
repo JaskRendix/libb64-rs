@@ -30,46 +30,24 @@ impl std::fmt::Display for DecodeIoError {
 
 impl std::error::Error for DecodeIoError {}
 
-pub enum DecodeStep {
-    A,
-    B,
-    C,
-    D,
-}
-
+#[derive(Debug)]
 pub struct Decoder {
-    pub step: DecodeStep,
-    pub plain: u8,
-    pub offset: usize,
-    pub seen_padding: bool,
+    buf: [u8; 4],
+    buf_len: usize,
+    offset: usize,
+    padding: u8,
+    ended: bool,
 }
 
 impl Decoder {
     pub fn new() -> Self {
         Self {
-            step: DecodeStep::A,
-            plain: 0,
+            buf: [0; 4],
+            buf_len: 0,
             offset: 0,
-            seen_padding: false,
+            padding: 0,
+            ended: false,
         }
-    }
-
-    #[inline]
-    fn decode_value(b: u8) -> Option<i8> {
-        const PAD: i8 = -2;
-
-        const TABLE: [i8; 80] = [
-            62, -1, -1, -1, 63, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, -1, -1, -1, PAD, -1, -1,
-            -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22,
-            23, 24, 25, -1, -1, -1, -1, -1, -1, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38,
-            39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51,
-        ];
-
-        let idx = b.wrapping_sub(b'+') as usize;
-        if idx >= TABLE.len() {
-            return None;
-        }
-        Some(TABLE[idx])
     }
 
     #[inline]
@@ -77,104 +55,122 @@ impl Decoder {
         matches!(b, b' ' | b'\n' | b'\r' | b'\t')
     }
 
-    #[allow(clippy::never_loop)]
-    fn next_valid(
-        &mut self,
-        iter: &mut impl Iterator<Item = u8>,
-    ) -> Result<Option<u8>, DecodeError> {
-        for b in iter {
-            self.offset += 1;
+    #[inline]
+    fn decode_value(b: u8) -> Option<u8> {
+        match b {
+            b'A'..=b'Z' => Some(b - b'A'),
+            b'a'..=b'z' => Some(b - b'a' + 26),
+            b'0'..=b'9' => Some(b - b'0' + 52),
+            b'+' => Some(62),
+            b'/' => Some(63),
+            _ => None,
+        }
+    }
 
+    /// Feed a block of input into the decoder, appending decoded bytes to `out`.
+    /// This can be called repeatedly for streaming; call `finalize` at the end.
+    pub fn decode_block(&mut self, input: &[u8], out: &mut Vec<u8>) -> Result<(), DecodeError> {
+        for b in input.iter().copied() {
             if Self::is_whitespace(b) {
                 continue;
             }
 
-            match Self::decode_value(b) {
-                Some(v) if v >= 0 => {
-                    if self.seen_padding {
-                        return Err(DecodeError::UnexpectedPadding);
-                    }
-                    return Ok(Some(v as u8));
+            // Only count non-whitespace for error offsets.
+            self.offset += 1;
+
+            if self.ended {
+                // After we've seen padding and finished the last quartet,
+                // any further non-whitespace is invalid.
+                return Err(DecodeError::UnexpectedPadding);
+            }
+
+            if b == b'=' {
+                // Padding: only allowed in the final quartet, positions 3 or 4.
+                self.padding += 1;
+                if self.padding > 2 {
+                    return Err(DecodeError::UnexpectedPadding);
                 }
 
-                Some(-2) => {
-                    // '=' padding is only valid in positions 3 or 4 of a quartet,
-                    // i.e. when we're in steps C or D.
-                    match self.step {
-                        DecodeStep::C | DecodeStep::D => {
-                            self.seen_padding = true;
-                            return Ok(None);
+                // Padding fills remaining slots in the quartet as zeros.
+                self.buf[self.buf_len] = 0;
+                self.buf_len += 1;
+
+                if self.buf_len == 4 {
+                    // Final quartet with padding.
+                    match self.padding {
+                        1 => {
+                            // "xxx=" → 2 bytes
+                            let b0 = self.buf[0];
+                            let b1 = self.buf[1];
+                            let b2 = self.buf[2];
+
+                            out.push((b0 << 2) | (b1 >> 4));
+                            out.push((b1 << 4) | (b2 >> 2));
+                        }
+                        2 => {
+                            // "xx==" → 1 byte
+                            let b0 = self.buf[0];
+                            let b1 = self.buf[1];
+
+                            out.push((b0 << 2) | (b1 >> 4));
                         }
                         _ => return Err(DecodeError::UnexpectedPadding),
                     }
+
+                    self.buf_len = 0;
+                    self.ended = true;
                 }
 
-                _ => return Err(DecodeError::InvalidByte(b, self.offset)),
+                continue;
+            }
+
+            if self.padding > 0 {
+                // Data after padding is not allowed.
+                return Err(DecodeError::UnexpectedPadding);
+            }
+
+            let v = match Self::decode_value(b) {
+                Some(v) => v,
+                None => return Err(DecodeError::InvalidByte(b, self.offset)),
+            };
+
+            self.buf[self.buf_len] = v;
+            self.buf_len += 1;
+
+            if self.buf_len == 4 {
+                let b0 = self.buf[0];
+                let b1 = self.buf[1];
+                let b2 = self.buf[2];
+                let b3 = self.buf[3];
+
+                out.push((b0 << 2) | (b1 >> 4));
+                out.push((b1 << 4) | (b2 >> 2));
+                out.push((b2 << 6) | b3);
+
+                self.buf_len = 0;
             }
         }
 
-        Ok(None)
+        Ok(())
     }
 
-    pub fn decode_block(&mut self, input: &[u8], out: &mut Vec<u8>) -> Result<(), DecodeError> {
-        let mut iter = input.iter().copied();
-        let mut plain = self.plain;
-
-        loop {
-            match self.step {
-                DecodeStep::A => {
-                    let frag = match self.next_valid(&mut iter)? {
-                        None => {
-                            self.plain = plain;
-                            return Ok(());
-                        }
-                        Some(v) => v,
-                    };
-                    plain = (frag & 0x3F) << 2;
-                    self.step = DecodeStep::B;
-                }
-
-                DecodeStep::B => {
-                    // Padding is not allowed in position 2 of a quartet.
-                    let frag = match self.next_valid(&mut iter)? {
-                        None => return Err(DecodeError::UnexpectedPadding),
-                        Some(v) => v,
-                    };
-                    out.push(plain | ((frag & 0x30) >> 4));
-                    plain = (frag & 0x0F) << 4;
-                    self.step = DecodeStep::C;
-                }
-
-                DecodeStep::C => {
-                    match self.next_valid(&mut iter)? {
-                        // Padding in position 3: only 1 byte (from B) was valid.
-                        None => {
-                            self.step = DecodeStep::A;
-                            return Ok(());
-                        }
-                        Some(frag) => {
-                            out.push(plain | ((frag & 0x3C) >> 2));
-                            plain = (frag & 0x03) << 6;
-                            self.step = DecodeStep::D;
-                        }
-                    }
-                }
-
-                DecodeStep::D => {
-                    match self.next_valid(&mut iter)? {
-                        // Padding in position 4: 2 bytes (from B and C) were valid.
-                        None => {
-                            self.step = DecodeStep::A;
-                            return Ok(());
-                        }
-                        Some(frag) => {
-                            out.push(plain | (frag & 0x3F));
-                            self.step = DecodeStep::A;
-                        }
-                    }
-                }
+    /// Finalize decoding after all input has been fed.
+    /// Ensures there is no incomplete quartet left.
+    pub fn finalize(&mut self, _out: &mut [u8]) -> Result<(), DecodeError> {
+        if self.ended {
+            // Already finished cleanly.
+            if self.buf_len != 0 {
+                return Err(DecodeError::InvalidLength);
             }
+            return Ok(());
         }
+
+        if self.buf_len == 0 {
+            return Ok(());
+        }
+
+        // If we have leftover sextets without padding, that's invalid.
+        Err(DecodeError::InvalidLength)
     }
 }
 
@@ -188,6 +184,7 @@ pub fn decode_to_vec(input: &str) -> Result<Vec<u8>, DecodeError> {
     let mut dec = Decoder::new();
     let mut out = Vec::new();
     dec.decode_block(input.as_bytes(), &mut out)?;
+    dec.finalize(&mut out[..])?;
     Ok(out)
 }
 
@@ -208,6 +205,11 @@ pub fn decode_reader_to_writer<R: Read, W: Write>(
             .map_err(DecodeIoError::Decode)?;
         writer.write_all(&out)?;
         out.clear();
+    }
+
+    dec.finalize(&mut out).map_err(DecodeIoError::Decode)?;
+    if !out.is_empty() {
+        writer.write_all(&out)?;
     }
 
     Ok(())
