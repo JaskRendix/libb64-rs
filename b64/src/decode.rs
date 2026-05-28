@@ -47,6 +47,13 @@ impl fmt::Display for DecodeIoError {
 
 impl std::error::Error for DecodeIoError {}
 
+/// Strict vs lenient decode behavior.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DecodeMode {
+    Strict,
+    Lenient,
+}
+
 #[derive(Debug)]
 pub struct Decoder {
     buf: [u8; 4],
@@ -54,6 +61,7 @@ pub struct Decoder {
     offset: usize,
     padding: u8,
     ended: bool,
+    mode: DecodeMode,
 }
 
 impl Decoder {
@@ -64,6 +72,18 @@ impl Decoder {
             offset: 0,
             padding: 0,
             ended: false,
+            mode: DecodeMode::Lenient,
+        }
+    }
+
+    pub fn new_with_mode(mode: DecodeMode) -> Self {
+        Self {
+            buf: [0; 4],
+            buf_len: 0,
+            offset: 0,
+            padding: 0,
+            ended: false,
+            mode,
         }
     }
 
@@ -88,7 +108,11 @@ impl Decoder {
     /// This can be called repeatedly for streaming; call `finalize` at the end.
     pub fn decode_block(&mut self, input: &[u8], out: &mut Vec<u8>) -> Result<(), DecodeError> {
         for b in input.iter().copied() {
+            // Strict mode: whitespace is not allowed.
             if Self::is_whitespace(b) {
+                if let DecodeMode::Strict = self.mode {
+                    return Err(DecodeError::InvalidByte(b, self.offset));
+                }
                 continue;
             }
 
@@ -186,6 +210,11 @@ impl Decoder {
             return Ok(());
         }
 
+        // Strict mode: leftover sextets without padding are invalid.
+        if let DecodeMode::Strict = self.mode {
+            return Err(DecodeError::InvalidLength);
+        }
+
         // If we have leftover sextets without padding, that's invalid.
         Err(DecodeError::InvalidLength)
     }
@@ -197,19 +226,24 @@ impl Default for Decoder {
     }
 }
 
-pub fn decode_to_vec(input: &str) -> Result<Vec<u8>, DecodeError> {
-    let mut dec = Decoder::new();
+pub fn decode_to_vec_mode(input: &str, mode: DecodeMode) -> Result<Vec<u8>, DecodeError> {
+    let mut dec = Decoder::new_with_mode(mode);
     let mut out = Vec::new();
     dec.decode_block(input.as_bytes(), &mut out)?;
     dec.finalize(&mut out[..])?;
     Ok(out)
 }
 
-pub fn decode_reader_to_writer<R: Read, W: Write>(
+pub fn decode_to_vec(input: &str) -> Result<Vec<u8>, DecodeError> {
+    decode_to_vec_mode(input, DecodeMode::Lenient)
+}
+
+pub fn decode_reader_to_writer_mode<R: Read, W: Write>(
     reader: &mut R,
     writer: &mut W,
+    mode: DecodeMode,
 ) -> Result<(), DecodeIoError> {
-    let mut dec = Decoder::new();
+    let mut dec = Decoder::new_with_mode(mode);
     let mut buf = [0u8; 4096];
     let mut out = Vec::new();
 
@@ -230,4 +264,11 @@ pub fn decode_reader_to_writer<R: Read, W: Write>(
     }
 
     Ok(())
+}
+
+pub fn decode_reader_to_writer<R: Read, W: Write>(
+    reader: &mut R,
+    writer: &mut W,
+) -> Result<(), DecodeIoError> {
+    decode_reader_to_writer_mode(reader, writer, DecodeMode::Lenient)
 }

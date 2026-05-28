@@ -47,6 +47,9 @@ enum Command {
 
         #[arg(long)]
         url_safe: bool,
+
+        #[arg(long)]
+        strict: bool,
     },
 }
 
@@ -111,6 +114,7 @@ fn main() -> anyhow::Result<()> {
             check,
             parallel,
             url_safe: _,
+            strict,
         } => {
             let mut reader = open_input(input)?;
 
@@ -136,6 +140,12 @@ fn main() -> anyhow::Result<()> {
                 }
             }
 
+            let mode = if strict {
+                b64::DecodeMode::Strict
+            } else {
+                b64::DecodeMode::Lenient
+            };
+
             let mut writer = open_output(output)?;
 
             // -------------------------
@@ -157,7 +167,7 @@ fn main() -> anyhow::Result<()> {
             // STREAMING DECODE
             // -------------------------
             else {
-                if let Err(e) = b64::decode_reader_to_writer(&mut reader, &mut writer) {
+                if let Err(e) = b64::decode_reader_to_writer_mode(&mut reader, &mut writer, mode) {
                     eprintln!("Decode error: {}", e);
                     std::process::exit(1);
                 }

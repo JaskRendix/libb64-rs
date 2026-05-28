@@ -398,3 +398,39 @@ fn decode_url_safe_parallel() {
         .success()
         .stdout("parallel test");
 }
+
+#[test]
+fn decode_strict_rejects_whitespace() {
+    let mut cmd = Command::cargo_bin("base64-cli").unwrap();
+
+    cmd.arg("decode")
+        .arg("--strict")
+        .write_stdin("aG Vs bG 8=")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("Decode error"));
+}
+
+#[test]
+fn decode_strict_rejects_invalid_length() {
+    let mut cmd = Command::cargo_bin("base64-cli").unwrap();
+
+    cmd.arg("decode")
+        .arg("--strict")
+        .write_stdin("abc") // len % 4 != 0
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("Decode error"));
+}
+
+#[test]
+fn decode_strict_accepts_valid() {
+    let mut cmd = Command::cargo_bin("base64-cli").unwrap();
+
+    cmd.arg("decode")
+        .arg("--strict")
+        .write_stdin("aGVsbG8=")
+        .assert()
+        .success()
+        .stdout("hello");
+}
