@@ -311,3 +311,90 @@ fn encode_binary_data() {
 
     assert_eq!(encoded.trim(), "AJ//CiE=");
 }
+
+#[test]
+fn encode_url_safe_stdin_to_stdout() {
+    let mut cmd = Command::cargo_bin("base64-cli").unwrap();
+
+    cmd.arg("encode")
+        .arg("--url-safe")
+        .write_stdin("hello world")
+        .assert()
+        .success()
+        .stdout("aGVsbG8gd29ybGQ=");
+}
+
+#[test]
+fn encode_url_safe_file_to_file() {
+    let mut input = NamedTempFile::new().unwrap();
+    let mut output = NamedTempFile::new().unwrap();
+
+    write!(input, "hello world").unwrap();
+
+    let mut cmd = Command::cargo_bin("base64-cli").unwrap();
+    cmd.arg("encode")
+        .arg("--url-safe")
+        .arg("--input")
+        .arg(input.path())
+        .arg("--output")
+        .arg(output.path())
+        .assert()
+        .success();
+
+    let mut encoded = String::new();
+    output.read_to_string(&mut encoded).unwrap();
+
+    assert_eq!(encoded.trim(), "aGVsbG8gd29ybGQ=");
+}
+
+#[test]
+fn encode_url_safe_parallel() {
+    let mut cmd = Command::cargo_bin("base64-cli").unwrap();
+
+    cmd.arg("encode")
+        .arg("--parallel")
+        .arg("--url-safe")
+        .write_stdin("parallel urlsafe 123")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("cGFyYWxsZWwgdXJsc2FmZSAxMjM"));
+}
+
+#[test]
+fn decode_url_safe_stdin_to_stdout() {
+    let mut cmd = Command::cargo_bin("base64-cli").unwrap();
+
+    // URL-safe form of "hello world"
+    cmd.arg("decode")
+        .arg("--url-safe")
+        .write_stdin("aGVsbG8gd29ybGQ=")
+        .assert()
+        .success()
+        .stdout("hello world");
+}
+
+#[test]
+fn decode_url_safe_mixed_alphabet() {
+    let mut cmd = Command::cargo_bin("base64-cli").unwrap();
+
+    cmd.arg("decode")
+        .arg("--url-safe")
+        .write_stdin("aGVsbG8gd29ybGQ=") // same as standard
+        .assert()
+        .success()
+        .stdout("hello world");
+}
+
+#[test]
+fn decode_url_safe_parallel() {
+    let mut cmd = Command::cargo_bin("base64-cli").unwrap();
+
+    // URL-safe encoding of "parallel test"
+    cmd.arg("decode")
+        .arg("--parallel")
+        .arg("--url-safe")
+        .write_stdin("cGFyYWxsZWwgdGVzdA==")
+        .assert()
+        .success()
+        .stdout("parallel test");
+}
