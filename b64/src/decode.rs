@@ -78,8 +78,8 @@ impl Decoder {
             b'A'..=b'Z' => Some(b - b'A'),
             b'a'..=b'z' => Some(b - b'a' + 26),
             b'0'..=b'9' => Some(b - b'0' + 52),
-            b'+' => Some(62),
-            b'/' => Some(63),
+            b'+' | b'-' => Some(62), // standard '+' and URL-safe '-'
+            b'/' | b'_' => Some(63), // standard '/' and URL-safe '_'
             _ => None,
         }
     }
