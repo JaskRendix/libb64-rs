@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 rayon = "1.10"
 base64-simd = "0.8"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "io-util"] }
 
 [dev-dependencies]
 criterion = "0.5"

@@ -1,23 +1,35 @@
 use std::fmt;
 use std::io::{Read, Write};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug)]
 pub enum DecodeError {
     InvalidLength,
     InvalidByte(u8, usize),
     InvalidPadding,
+    Io(std::io::Error),
     UnexpectedPadding,
+}
+
+impl From<std::io::Error> for DecodeError {
+    fn from(e: std::io::Error) -> Self {
+        DecodeError::Io(e)
+    }
 }
 
 impl fmt::Display for DecodeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             DecodeError::InvalidLength => write!(f, "invalid Base64 length"),
+
             DecodeError::InvalidByte(b, pos) => {
                 write!(f, "invalid Base64 byte 0x{:02X} at position {}", b, pos)
             }
+
             DecodeError::InvalidPadding => write!(f, "invalid Base64 padding"),
+
             DecodeError::UnexpectedPadding => write!(f, "unexpected padding or data after padding"),
+
+            DecodeError::Io(e) => write!(f, "IO error: {}", e),
         }
     }
 }
