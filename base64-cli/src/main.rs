@@ -15,42 +15,38 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    /// Encode binary data to Base64
     Encode {
-        /// Input file (or "-" for stdin)
         #[arg(short, long)]
         input: Option<String>,
 
-        /// Output file (or "-" for stdout)
         #[arg(short, long)]
         output: Option<String>,
 
-        /// Wrap output at N columns (0 = no wrap)
         #[arg(long)]
         wrap: Option<usize>,
 
-        /// Use parallel SIMD encoder
         #[arg(long)]
         parallel: bool,
+
+        #[arg(long)]
+        url_safe: bool,
     },
 
-    /// Decode Base64 back to binary
     Decode {
-        /// Input file (or "-" for stdin)
         #[arg(short, long)]
         input: Option<String>,
 
-        /// Output file (or "-" for stdout)
         #[arg(short, long)]
         output: Option<String>,
 
-        /// Only check validity; do not write output
         #[arg(long)]
         check: bool,
 
-        /// Use parallel SIMD decoder
         #[arg(long)]
         parallel: bool,
+
+        #[arg(long)]
+        url_safe: bool,
     },
 }
 
@@ -82,19 +78,27 @@ fn main() -> anyhow::Result<()> {
             output,
             wrap,
             parallel,
+            url_safe,
         } => {
             let mut reader = open_input(input)?;
             let mut writer = open_output(output)?;
 
             if parallel {
-                // Parallel encode requires full input in memory
                 let mut buf = Vec::new();
                 reader.read_to_end(&mut buf)?;
-                let encoded = b64::encode_parallel(&buf);
+                let encoded = if url_safe {
+                    b64::encode_parallel_url_safe(&buf)
+                } else {
+                    b64::encode_parallel(&buf)
+                };
                 writer.write_all(encoded.as_bytes())?;
             } else {
                 let wrap = wrap.filter(|&n| n > 0);
-                b64::encode_reader_to_writer(&mut reader, &mut writer, wrap)?;
+                if url_safe {
+                    b64::encode_url_safe_reader_to_writer(&mut reader, &mut writer, wrap)?;
+                } else {
+                    b64::encode_reader_to_writer(&mut reader, &mut writer, wrap)?;
+                }
             }
         }
 
@@ -106,6 +110,7 @@ fn main() -> anyhow::Result<()> {
             output,
             check,
             parallel,
+            url_safe: _,
         } => {
             let mut reader = open_input(input)?;
 
