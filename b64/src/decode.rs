@@ -226,11 +226,26 @@ impl Default for Decoder {
     }
 }
 
-pub fn decode_to_vec_mode(input: &str, mode: DecodeMode) -> Result<Vec<u8>, DecodeError> {
+/// Zero-copy style: decode into a caller-provided Vec buffer (mode-aware).
+pub fn decode_to_vec_mode_into(
+    input: &str,
+    mode: DecodeMode,
+    out: &mut Vec<u8>,
+) -> Result<(), DecodeError> {
     let mut dec = Decoder::new_with_mode(mode);
-    let mut out = Vec::new();
-    dec.decode_block(input.as_bytes(), &mut out)?;
+    dec.decode_block(input.as_bytes(), out)?;
     dec.finalize(&mut out[..])?;
+    Ok(())
+}
+
+/// Zero-copy style: decode into a caller-provided Vec buffer (lenient mode).
+pub fn decode_to_vec_into(input: &str, out: &mut Vec<u8>) -> Result<(), DecodeError> {
+    decode_to_vec_mode_into(input, DecodeMode::Lenient, out)
+}
+
+pub fn decode_to_vec_mode(input: &str, mode: DecodeMode) -> Result<Vec<u8>, DecodeError> {
+    let mut out = Vec::new();
+    decode_to_vec_mode_into(input, mode, &mut out)?;
     Ok(out)
 }
 

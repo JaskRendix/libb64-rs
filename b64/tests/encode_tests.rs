@@ -91,3 +91,30 @@ fn encode_padding_cases() {
     assert_eq!(encode_to_string(b"fooba"), "Zm9vYmE=");
     assert_eq!(encode_to_string(b"foobar"), "Zm9vYmFy");
 }
+
+#[test]
+fn encode_into_basic() {
+    let mut out = Vec::new();
+    b64::encode_into(b"hello world", &mut out);
+
+    assert_eq!(std::str::from_utf8(&out).unwrap(), "aGVsbG8gd29ybGQ=");
+}
+
+#[test]
+fn encode_url_safe_into_basic() {
+    let mut out = Vec::new();
+    b64::encode_url_safe_into(b"hello world", &mut out);
+
+    assert_eq!(std::str::from_utf8(&out).unwrap(), "aGVsbG8gd29ybGQ=");
+}
+
+#[test]
+fn encode_into_wrap() {
+    let mut out = Vec::new();
+    let mut enc = b64::Encoder::new(Some(4));
+
+    enc.encode_block_into(b"hello world", &mut out);
+    enc.encode_end_into(&mut out);
+
+    assert_eq!(std::str::from_utf8(&out).unwrap(), "aGVs\nbG8g\nd29y\nbGQ=");
+}

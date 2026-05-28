@@ -128,6 +128,87 @@ impl Encoder {
             }
         }
     }
+
+    // ---------------------------------------------------------
+    // ZERO-COPY: push a single encoded byte into caller Vec<u8>
+    // ---------------------------------------------------------
+    #[inline]
+    fn push_byte_into(&mut self, out: &mut Vec<u8>, b: u8) {
+        // Same wrap logic as push_char(), but for raw bytes.
+        if let Some(n) = self.chars_per_line {
+            if self.line_pos >= n {
+                out.push(b'\n');
+                self.line_pos = 0;
+            }
+        }
+        out.push(b);
+        self.line_pos += 1;
+    }
+
+    // ---------------------------------------------------------
+    // ZERO-COPY: encode_block_into
+    // Same logic as encode_block(), but writes bytes into Vec<u8>
+    // ---------------------------------------------------------
+    pub fn encode_block_into(&mut self, input: &[u8], out: &mut Vec<u8>) {
+        let mut iter = input.iter().copied();
+
+        loop {
+            match self.step {
+                EncodeStep::A => {
+                    let Some(b) = iter.next() else { return };
+                    let v = (b >> 2) & 0b0011_1111;
+                    self.push_byte_into(out, self.encode_value(v));
+                    self.result = (b & 0b0000_0011) << 4;
+                    self.step = EncodeStep::B;
+                }
+
+                EncodeStep::B => {
+                    let Some(b) = iter.next() else { return };
+                    let v = self.result | ((b >> 4) & 0b0000_1111);
+                    self.push_byte_into(out, self.encode_value(v));
+                    self.result = (b & 0b0000_1111) << 2;
+                    self.step = EncodeStep::C;
+                }
+
+                EncodeStep::C => {
+                    let Some(b) = iter.next() else { return };
+                    let v = self.result | ((b >> 6) & 0b0000_0011);
+                    self.push_byte_into(out, self.encode_value(v));
+
+                    let v2 = b & 0b0011_1111;
+                    self.push_byte_into(out, self.encode_value(v2));
+
+                    self.step = EncodeStep::A;
+                }
+            }
+        }
+    }
+
+    // ---------------------------------------------------------
+    // ZERO-COPY: encode_end_into
+    // Same logic as encode_end(), but writes bytes into Vec<u8>
+    // ---------------------------------------------------------
+    pub fn encode_end_into(&mut self, out: &mut Vec<u8>) {
+        match self.step {
+            EncodeStep::A => {}
+
+            EncodeStep::B => {
+                self.push_byte_into(out, self.encode_value(self.result));
+                out.push(b'=');
+                out.push(b'=');
+                self.line_pos += 2;
+            }
+
+            EncodeStep::C => {
+                self.push_byte_into(out, self.encode_value(self.result));
+                out.push(b'=');
+                self.line_pos += 1;
+            }
+        }
+
+        self.step = EncodeStep::A;
+        self.line_pos = 0;
+    }
 }
 
 pub fn encode_to_string(input: &[u8]) -> String {
@@ -136,6 +217,25 @@ pub fn encode_to_string(input: &[u8]) -> String {
     enc.encode_block(input, &mut out);
     enc.encode_end(&mut out);
     out
+}
+
+// ---------------------------------------------------------
+// ZERO-COPY: encode_into
+// Caller provides the output Vec<u8>.
+// ---------------------------------------------------------
+pub fn encode_into(input: &[u8], out: &mut Vec<u8>) {
+    let mut enc = Encoder::new(None);
+    enc.encode_block_into(input, out);
+    enc.encode_end_into(out);
+}
+
+// ---------------------------------------------------------
+// ZERO-COPY: encode_url_safe_into
+// ---------------------------------------------------------
+pub fn encode_url_safe_into(input: &[u8], out: &mut Vec<u8>) {
+    let mut enc = Encoder::new_url_safe(None);
+    enc.encode_block_into(input, out);
+    enc.encode_end_into(out);
 }
 
 pub fn encode_url_safe_to_string(input: &[u8]) -> String {

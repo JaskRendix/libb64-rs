@@ -107,3 +107,27 @@ fn decode_large() {
     let dec = decode_to_vec(&enc).unwrap();
     assert_eq!(dec, data);
 }
+
+#[test]
+fn decode_into_basic() {
+    let mut out = Vec::new();
+    b64::decode_to_vec_into("aGVsbG8gd29ybGQ=", &mut out).unwrap();
+
+    assert_eq!(out, b"hello world");
+}
+
+#[test]
+fn decode_into_strict_rejects_whitespace() {
+    let mut out = Vec::new();
+    let r = b64::decode_to_vec_mode_into("aG Vs", b64::DecodeMode::Strict, &mut out);
+
+    assert!(r.is_err());
+}
+
+#[test]
+fn decode_into_url_safe() {
+    let mut out = Vec::new();
+    b64::decode_to_vec_into("aGVsbG8gd29ybGQ=", &mut out).unwrap();
+
+    assert_eq!(out, b"hello world");
+}
