@@ -113,7 +113,7 @@ fn main() -> anyhow::Result<()> {
             output,
             check,
             parallel,
-            url_safe: _,
+            url_safe,
             strict,
         } => {
             let mut reader = open_input(input)?;
@@ -126,8 +126,13 @@ fn main() -> anyhow::Result<()> {
                 reader.read_to_string(&mut buf)?;
 
                 let result = if parallel {
-                    b64::decode_parallel(&buf)
+                    if url_safe {
+                        b64::decode_parallel_url_safe(&buf)
+                    } else {
+                        b64::decode_parallel(&buf)
+                    }
                 } else {
+                    // scalar decode has no separate URL-safe function
                     b64::decode_to_vec(&buf)
                 };
 
@@ -155,7 +160,13 @@ fn main() -> anyhow::Result<()> {
                 let mut buf = String::new();
                 reader.read_to_string(&mut buf)?;
 
-                match b64::decode_parallel(&buf) {
+                let result = if url_safe {
+                    b64::decode_parallel_url_safe(&buf)
+                } else {
+                    b64::decode_parallel(&buf)
+                };
+
+                match result {
                     Ok(decoded) => writer.write_all(&decoded)?,
                     Err(e) => {
                         eprintln!("Decode error: {}", e);
@@ -167,6 +178,7 @@ fn main() -> anyhow::Result<()> {
             // STREAMING DECODE
             // -------------------------
             else {
+                // streaming decode has no separate URL-safe function
                 if let Err(e) = b64::decode_reader_to_writer_mode(&mut reader, &mut writer, mode) {
                     eprintln!("Decode error: {}", e);
                     std::process::exit(1);
