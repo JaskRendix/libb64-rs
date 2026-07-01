@@ -23,13 +23,19 @@ enum Command {
         output: Option<String>,
 
         #[arg(long)]
-        wrap: Option<usize>,
+        wrap: Option<String>, // "auto" or number
 
         #[arg(long)]
         parallel: bool,
 
         #[arg(long)]
         url_safe: bool,
+
+        #[arg(long)]
+        no_newline: bool,
+
+        #[arg(long)]
+        quiet: bool,
     },
 
     Decode {
@@ -39,7 +45,7 @@ enum Command {
         #[arg(short, long)]
         output: Option<String>,
 
-        #[arg(long)]
+        #[arg(long, alias = "validate")]
         check: bool,
 
         #[arg(long)]
@@ -50,6 +56,12 @@ enum Command {
 
         #[arg(long)]
         strict: bool,
+
+        #[arg(long)]
+        ignore_garbage: bool,
+
+        #[arg(long)]
+        quiet: bool,
     },
 }
 
@@ -82,9 +94,18 @@ fn main() -> anyhow::Result<()> {
             wrap,
             parallel,
             url_safe,
+            no_newline,
+            quiet: _,
         } => {
             let mut reader = open_input(input)?;
             let mut writer = open_output(output)?;
+
+            // wrap logic
+            let wrap = match wrap.as_deref() {
+                Some("auto") => Some(76),
+                Some(s) => s.parse::<usize>().ok().filter(|&n| n > 0),
+                None => None,
+            };
 
             if parallel {
                 let mut buf = Vec::new();
@@ -94,9 +115,13 @@ fn main() -> anyhow::Result<()> {
                 } else {
                     b64::encode_parallel(&buf)
                 };
-                writer.write_all(encoded.as_bytes())?;
+
+                if no_newline {
+                    write!(writer, "{}", encoded)?;
+                } else {
+                    writeln!(writer, "{}", encoded)?;
+                }
             } else {
-                let wrap = wrap.filter(|&n| n > 0);
                 if url_safe {
                     b64::encode_url_safe_reader_to_writer(&mut reader, &mut writer, wrap)?;
                 } else {
@@ -115,6 +140,8 @@ fn main() -> anyhow::Result<()> {
             parallel,
             url_safe,
             strict,
+            ignore_garbage,
+            quiet,
         } => {
             let mut reader = open_input(input)?;
 
@@ -132,14 +159,20 @@ fn main() -> anyhow::Result<()> {
                         b64::decode_parallel(&buf)
                     }
                 } else {
-                    // scalar decode has no separate URL-safe function
-                    b64::decode_to_vec(&buf)
+                    if ignore_garbage {
+                        let cleaned: String = buf.chars().filter(|c| !c.is_whitespace()).collect();
+                        b64::decode_to_vec(&cleaned)
+                    } else {
+                        b64::decode_to_vec(&buf)
+                    }
                 };
 
                 match result {
                     Ok(_) => return Ok(()),
                     Err(e) => {
-                        eprintln!("Decode error: {}", e);
+                        if !quiet {
+                            eprintln!("Decode error: {}", e);
+                        }
                         std::process::exit(1);
                     }
                 }
@@ -169,7 +202,9 @@ fn main() -> anyhow::Result<()> {
                 match result {
                     Ok(decoded) => writer.write_all(&decoded)?,
                     Err(e) => {
-                        eprintln!("Decode error: {}", e);
+                        if !quiet {
+                            eprintln!("Decode error: {}", e);
+                        }
                         std::process::exit(1);
                     }
                 }
@@ -178,10 +213,29 @@ fn main() -> anyhow::Result<()> {
             // STREAMING DECODE
             // -------------------------
             else {
-                // streaming decode has no separate URL-safe function
-                if let Err(e) = b64::decode_reader_to_writer_mode(&mut reader, &mut writer, mode) {
-                    eprintln!("Decode error: {}", e);
-                    std::process::exit(1);
+                if ignore_garbage {
+                    let mut buf = String::new();
+                    reader.read_to_string(&mut buf)?;
+                    let cleaned: String = buf.chars().filter(|c| !c.is_whitespace()).collect();
+
+                    match b64::decode_to_vec(&cleaned) {
+                        Ok(decoded) => writer.write_all(&decoded)?,
+                        Err(e) => {
+                            if !quiet {
+                                eprintln!("Decode error: {}", e);
+                            }
+                            std::process::exit(1);
+                        }
+                    }
+                } else {
+                    if let Err(e) =
+                        b64::decode_reader_to_writer_mode(&mut reader, &mut writer, mode)
+                    {
+                        if !quiet {
+                            eprintln!("Decode error: {}", e);
+                        }
+                        std::process::exit(1);
+                    }
                 }
             }
         }

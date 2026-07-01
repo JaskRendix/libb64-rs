@@ -434,3 +434,78 @@ fn decode_strict_accepts_valid() {
         .success()
         .stdout("hello");
 }
+
+#[test]
+fn decode_quiet_suppresses_errors() {
+    let mut cmd = Command::cargo_bin("base64-cli").unwrap();
+
+    cmd.arg("decode")
+        .arg("--quiet")
+        .write_stdin("### invalid ###")
+        .assert()
+        .failure()
+        .stderr("");
+}
+
+#[test]
+fn encode_parallel_no_newline() {
+    let mut cmd = Command::cargo_bin("base64-cli").unwrap();
+
+    let out = cmd
+        .arg("encode")
+        .arg("--parallel")
+        .arg("--no-newline")
+        .write_stdin("hello")
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+
+    assert!(!out.ends_with(b"\n"));
+}
+
+#[test]
+fn decode_validate_alias() {
+    let mut cmd = Command::cargo_bin("base64-cli").unwrap();
+
+    cmd.arg("decode")
+        .arg("--validate")
+        .write_stdin("aGVsbG8=")
+        .assert()
+        .success()
+        .stdout("");
+}
+
+#[test]
+fn encode_wrap_auto() {
+    let mut cmd = Command::cargo_bin("base64-cli").unwrap();
+
+    let input = "A".repeat(200);
+    let out = cmd
+        .arg("encode")
+        .arg("--wrap")
+        .arg("auto")
+        .write_stdin(input)
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+
+    // auto = 76 chars per line
+    let lines = String::from_utf8(out).unwrap();
+    assert!(lines.lines().all(|l| l.len() <= 76));
+}
+
+#[test]
+fn decode_ignore_garbage() {
+    let mut cmd = Command::cargo_bin("base64-cli").unwrap();
+
+    cmd.arg("decode")
+        .arg("--ignore-garbage")
+        .write_stdin("aG Vs bG 8g d29y bG Q=")
+        .assert()
+        .success()
+        .stdout("hello world");
+}

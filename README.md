@@ -195,6 +195,12 @@ URL‑safe encode:
 base64-cli encode --url-safe --input in.bin --output out.b64
 ```
 
+No trailing newline:
+
+```
+base64-cli encode --no-newline --input in.bin --output out.b64
+```
+
 ### Decode
 
 ```
@@ -219,15 +225,28 @@ Strict decode:
 base64-cli decode --strict --input in.b64 --output out.bin
 ```
 
-Strict mode rejects whitespace, invalid length, invalid padding, and data after padding.
+Ignore whitespace:
 
-### Check mode
+```
+base64-cli decode --ignore-garbage --input in.b64 --output out.bin
+```
+
+### Check / Validate mode
 
 ```
 base64-cli decode --check --input file.b64
+base64-cli decode --validate --input file.b64
 ```
 
 Exit code is nonzero on invalid input.
+
+### Quiet mode
+
+```
+base64-cli decode --quiet --input bad.b64
+```
+
+Suppresses error messages.
 
 ---
 
@@ -242,10 +261,15 @@ OPTIONS:
     -i, --input <FILE>       Input file or "-" for stdin
     -o, --output <FILE>      Output file or "-" for stdout
         --wrap <N>           Wrap output every N characters (0 disables wrap)
+        --wrap auto          Wrap at 76 characters
+        --no-newline         Do not print trailing newline (parallel encode)
         --parallel           Use parallel encoder or decoder
         --url-safe           Use URL-safe alphabet
         --strict             Reject invalid input
+        --ignore-garbage     Strip whitespace before decode
         --check              Validate input without writing output
+        --validate           Alias for --check
+        --quiet              Suppress error messages
 ```
 
 ---
