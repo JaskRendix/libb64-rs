@@ -1,7 +1,7 @@
 # b64 — Base64 Encoding and Decoding in Rust
 
 A Base64 implementation written in safe Rust.  
-Provides in‑memory routines, streaming interfaces, async I/O, optional SIMD parallel helpers, URL‑safe encoding, strict decoding, a command‑line tool, and example binaries.
+Provides in‑memory routines, streaming interfaces, async I/O, parallel encoders, optional SIMD backends, URL‑safe encoding, strict decoding, a command‑line tool, and example binaries.
 
 This crate is not published on crates.io.  
 Use it through Git or build the workspace locally.
@@ -13,12 +13,24 @@ Use it through Git or build the workspace locally.
 - In‑memory encode and decode  
 - Streaming encode and decode  
 - Async encode and decode (Tokio)  
-- Optional SIMD parallel routines  
+- Parallel encode and decode (Rayon)  
+- SIMD‑accelerated encode (AVX2) with runtime dispatch  
 - URL‑safe alphabet (`-` and `_`)  
 - Strict decode mode  
 - Command‑line tool  
 - Example binaries  
 - Benchmarks  
+
+---
+
+## Feature flags
+
+- `simd` — enable SIMD support  
+- `simd-avx2` — AVX2 backend on x86_64  
+- `simd-sse2` — reserved for future SSE2 backend  
+- `simd-neon` — reserved for future NEON backend  
+
+The default feature set enables SIMD.
 
 ---
 
@@ -136,7 +148,10 @@ async fn main() {
 
 ---
 
-## Parallel SIMD API
+## Parallel and SIMD API
+
+Parallel encode uses Rayon for chunked multi‑threaded processing.  
+On x86_64, AVX2 is used when available; otherwise the scalar backend is used.
 
 ```rust
 use b64::encode_parallel;
@@ -227,7 +242,7 @@ OPTIONS:
     -i, --input <FILE>       Input file or "-" for stdin
     -o, --output <FILE>      Output file or "-" for stdout
         --wrap <N>           Wrap output every N characters (0 disables wrap)
-        --parallel           Use SIMD parallel encoder or decoder
+        --parallel           Use parallel encoder or decoder
         --url-safe           Use URL-safe alphabet
         --strict             Reject invalid input
         --check              Validate input without writing output
@@ -253,6 +268,8 @@ Run tests:
 cargo test --workspace
 ```
 
+Parallel scalar and AVX2 backends have dedicated test suites.
+
 Run benchmarks:
 
 ```
@@ -265,7 +282,8 @@ Benchmark results are in `BENCHMARKS.md`.
 
 ## Platform support
 
-Tested on Linux, Windows (MSVC), and macOS.  
+Parallel encode works on all platforms.  
+SIMD acceleration is available on x86_64 with AVX2.  
 Requires stable Rust.
 
 ---
