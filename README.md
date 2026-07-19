@@ -3,8 +3,19 @@
 A Base64 implementation written in safe Rust.  
 Provides in‑memory routines, streaming interfaces, async I/O, parallel encoders, optional SIMD backends, URL‑safe encoding, strict decoding, a command‑line tool, and example binaries.
 
-This crate is not published on crates.io.  
 Use it through Git or build the workspace locally.
+
+---
+
+## Installation
+
+This crate is not published on crates.io.  
+Use it via Git:
+
+```toml
+[dependencies]
+b64 = { git = "https://github.com/JaskRendix/libb64-rs" }
+```
 
 ---
 
@@ -44,17 +55,6 @@ Build everything:
 
 ```
 cargo build --workspace
-```
-
----
-
-## Using the library
-
-Use a Git dependency:
-
-```toml
-[dependencies]
-b64 = { git = "https://github.com/your/repo.git" }
 ```
 
 ---
