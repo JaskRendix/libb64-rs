@@ -17,6 +17,7 @@ async fn async_decode_standard_stream() {
 #[tokio::test]
 async fn async_decode_url_safe_alphabet() {
     // URL-safe encoded format containing '-' and '_'
+    // ">>Hello?_World<<" encoded in URL-safe Base64 is "Pj5IZWxsbz9fV29ybGQ8PD4="
     let encoded = "Pj5IZWxsbz9fV29ybGQ8PD4=";
     let mut reader = Cursor::new(encoded.as_bytes());
     let mut decoded = Vec::new();
