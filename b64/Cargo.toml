@@ -5,17 +5,17 @@ edition = "2021"
 
 [dependencies]
 rayon = "1.10"
-base64-simd = { version = "0.8", optional = true }
+base64-simd = "0.8"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "io-util"] }
 base64 = "0.22"
 
 [features]
-simd = ["base64-simd"]
-simd-avx2 = ["simd"]
-simd-sse2 = ["simd"]
-simd-neon = ["simd"]
+simd = []
+simd-avx2 = []
+simd-sse2 = []
+simd-neon = []
 
-default = ["simd"] # or empty if you want scalar-only by default
+default = []
 
 [dev-dependencies]
 criterion = "0.5"
