@@ -134,7 +134,6 @@ impl Encoder {
     // ---------------------------------------------------------
     #[inline]
     fn push_byte_into(&mut self, out: &mut Vec<u8>, b: u8) {
-        // Same wrap logic as push_char(), but for raw bytes.
         if let Some(n) = self.chars_per_line {
             if self.line_pos >= n {
                 out.push(b'\n');
@@ -147,7 +146,6 @@ impl Encoder {
 
     // ---------------------------------------------------------
     // ZERO-COPY: encode_block_into
-    // Same logic as encode_block(), but writes bytes into Vec<u8>
     // ---------------------------------------------------------
     pub fn encode_block_into(&mut self, input: &[u8], out: &mut Vec<u8>) {
         let mut iter = input.iter().copied();
@@ -186,7 +184,6 @@ impl Encoder {
 
     // ---------------------------------------------------------
     // ZERO-COPY: encode_end_into
-    // Same logic as encode_end(), but writes bytes into Vec<u8>
     // ---------------------------------------------------------
     pub fn encode_end_into(&mut self, out: &mut Vec<u8>) {
         match self.step {
@@ -219,19 +216,12 @@ pub fn encode_to_string(input: &[u8]) -> String {
     out
 }
 
-// ---------------------------------------------------------
-// ZERO-COPY: encode_into
-// Caller provides the output Vec<u8>.
-// ---------------------------------------------------------
 pub fn encode_into(input: &[u8], out: &mut Vec<u8>) {
     let mut enc = Encoder::new(None);
     enc.encode_block_into(input, out);
     enc.encode_end_into(out);
 }
 
-// ---------------------------------------------------------
-// ZERO-COPY: encode_url_safe_into
-// ---------------------------------------------------------
 pub fn encode_url_safe_into(input: &[u8], out: &mut Vec<u8>) {
     let mut enc = Encoder::new_url_safe(None);
     enc.encode_block_into(input, out);
@@ -246,12 +236,14 @@ pub fn encode_url_safe_to_string(input: &[u8]) -> String {
     out
 }
 
-pub fn encode_reader_to_writer<R: Read, W: Write>(
+// ---------------------------------------------------------
+// DRY Helper for Stream Encoding
+// ---------------------------------------------------------
+fn encode_reader_to_writer_generic<R: Read, W: Write>(
+    mut enc: Encoder,
     reader: &mut R,
     writer: &mut W,
-    wrap: Option<usize>,
 ) -> std::io::Result<()> {
-    let mut enc = Encoder::new(wrap);
     let mut buf = [0u8; 4096];
     let mut out = String::with_capacity(8192);
 
@@ -274,30 +266,20 @@ pub fn encode_reader_to_writer<R: Read, W: Write>(
     Ok(())
 }
 
+pub fn encode_reader_to_writer<R: Read, W: Write>(
+    reader: &mut R,
+    writer: &mut W,
+    wrap: Option<usize>,
+) -> std::io::Result<()> {
+    let enc = Encoder::new(wrap);
+    encode_reader_to_writer_generic(enc, reader, writer)
+}
+
 pub fn encode_url_safe_reader_to_writer<R: Read, W: Write>(
     reader: &mut R,
     writer: &mut W,
     wrap: Option<usize>,
 ) -> std::io::Result<()> {
-    let mut enc = Encoder::new_url_safe(wrap);
-    let mut buf = [0u8; 4096];
-    let mut out = String::with_capacity(8192);
-
-    loop {
-        let n = reader.read(&mut buf)?;
-        if n == 0 {
-            break;
-        }
-
-        enc.encode_block(&buf[..n], &mut out);
-
-        if out.len() >= 4096 {
-            writer.write_all(out.as_bytes())?;
-            out.clear();
-        }
-    }
-
-    enc.encode_end(&mut out);
-    writer.write_all(out.as_bytes())?;
-    Ok(())
+    let enc = Encoder::new_url_safe(wrap);
+    encode_reader_to_writer_generic(enc, reader, writer)
 }
