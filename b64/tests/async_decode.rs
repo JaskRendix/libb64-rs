@@ -16,7 +16,6 @@ async fn async_decode_standard_stream() {
 
 #[tokio::test]
 async fn async_decode_url_safe_alphabet() {
-    // This string decodes to 17 bytes ending with three '<' characters: b">>Hello?_World<<<"
     let encoded = "Pj5IZWxsbz9fV29ybGQ8PD4=";
     let mut reader = Cursor::new(encoded.as_bytes());
     let mut decoded = Vec::new();
@@ -25,7 +24,7 @@ async fn async_decode_url_safe_alphabet() {
         .await
         .unwrap();
 
-    assert_eq!(decoded, b">>Hello?_World<<<");
+    assert_eq!(decoded, b">>Hello?_World<<>");
 }
 
 #[tokio::test]
