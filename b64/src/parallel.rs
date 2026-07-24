@@ -1,5 +1,6 @@
 use base64_simd::{STANDARD, URL_SAFE};
 use rayon::prelude::*;
+
 use crate::decode::DecodeError;
 
 const CHUNK: usize = 3 * 64 * 1024; // 192 KB (must be a multiple of 3)
