@@ -223,3 +223,45 @@ fn wrap_exact_boundary() {
 
     assert!(!out.ends_with('\n'));
 }
+
+#[test]
+fn parallel_url_safe_roundtrip() {
+    let data = b">>Hello?_World<<";
+    let enc = encode_parallel_url_safe(data);
+    assert!(!enc.contains('+') && !enc.contains('/')); // URL safe check
+    let dec = decode_parallel_url_safe(&enc).unwrap();
+    assert_eq!(dec, data);
+}
+
+#[test]
+fn strict_mode_rejects_whitespace() {
+    let input = "SG VsbG8="; // contains a space
+    let lenient_res = decode_to_vec_mode(input, DecodeMode::Lenient);
+    let strict_res = decode_to_vec_mode(input, DecodeMode::Strict);
+    
+    assert!(lenient_res.is_ok());
+    assert!(strict_res.is_err());
+}
+
+#[tokio::test]
+async fn test_async_pipelines() {
+    use crate::async_encode::encode_reader_to_writer_async;
+    use crate::async_decode::decode_reader_to_writer_async;
+
+    let data = b"Async tokio stream roundtrip test data over buffer limits!";
+    let mut cursor_enc = &data[..];
+    let mut encrypted_writer = Vec::new();
+
+    encode_reader_to_writer_async(&mut cursor_enc, &mut encrypted_writer, None)
+        .await
+        .unwrap();
+
+    let mut cursor_dec = &encrypted_writer[..];
+    let mut decrypted_writer = Vec::new();
+
+    decode_reader_to_writer_async(&mut cursor_dec, &mut decrypted_writer)
+        .await
+        .unwrap();
+
+    assert_eq!(decrypted_writer, data);
+}
