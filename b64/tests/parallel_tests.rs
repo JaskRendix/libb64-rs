@@ -1,6 +1,8 @@
 use b64::decode::Decoder;
 use b64::encode::Encoder;
-use b64::{decode_parallel, encode_parallel};
+use b64::{
+    decode_parallel, decode_parallel_url_safe, encode_parallel, encode_parallel_url_safe,
+};
 use b64::{decode_to_vec, encode_to_string};
 
 #[test]
