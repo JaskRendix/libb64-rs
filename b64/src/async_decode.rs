@@ -1,6 +1,6 @@
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
-use crate::decode::{Decoder, DecodeError, DecodeMode};
+use crate::decode::{DecodeError, DecodeMode, Decoder};
 
 /// Async Base64 decoding (lenient mode).
 pub async fn decode_reader_to_writer_async<R, W>(
