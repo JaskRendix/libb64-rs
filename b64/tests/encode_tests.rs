@@ -118,3 +118,34 @@ fn encode_into_wrap() {
 
     assert_eq!(std::str::from_utf8(&out).unwrap(), "aGVs\nbG8g\nd29y\nbGQ=");
 }
+
+#[test]
+fn encode_url_safe_alphabet_mapping() {
+    // Bytes that produce '+' and '/' in standard base64 (e.g., 0xFB, 0xEF, 0xBE)
+    let data = &[0xFB, 0xEF, 0xBE];
+    let std_res = encode_to_string(data);
+    let url_res = encode_url_safe_to_string(data);
+
+    assert!(std_res.contains('+') || std_res.contains('/'));
+    assert!(!url_res.contains('+') && !url_res.contains('/'));
+    assert!(url_res.contains('-') || url_res.contains('_'));
+}
+
+#[test]
+fn encode_url_safe_streaming() {
+    let input = b">>streaming?_url_safe<<";
+    let mut reader = Cursor::new(input);
+    let mut out = Vec::new();
+
+    encode_url_safe_reader_to_writer(&mut reader, &mut out, None).unwrap();
+
+    let encoded = String::from_utf8(out).unwrap();
+    assert!(!encoded.contains('+') && !encoded.contains('/'));
+}
+
+#[test]
+fn encode_into_empty() {
+    let mut out = Vec::new();
+    b64::encode_into(b"", &mut out);
+    assert!(out.is_empty());
+}
