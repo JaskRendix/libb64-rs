@@ -144,8 +144,8 @@ fn decode_url_safe_variants() {
 fn strict_mode_rejects_invalid_length() {
     let mut out = Vec::new();
 
-    // Correct argument order: (input, mode, out)
-    let r = b64::decode_to_vec_mode_into("aGVs", b64::DecodeMode::Strict, &mut out);
+    // Valid strict-mode decode (no error expected)
+    b64::decode_to_vec_mode_into("aGVs", b64::DecodeMode::Strict, &mut out).unwrap();
 
     // Now test invalid length
     let r_bad = b64::decode_to_vec_mode_into("aGV", b64::DecodeMode::Strict, &mut out);
