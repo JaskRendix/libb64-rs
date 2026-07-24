@@ -1,7 +1,7 @@
 use b64::{
     decode_parallel, decode_reader_to_writer, decode_reader_to_writer_async, decode_to_vec,
-    encode_parallel, encode_reader_to_writer, encode_reader_to_writer_async,
-    encode_url_safe_reader_to_writer_async, encode_to_string,
+    encode_parallel, encode_reader_to_writer, encode_reader_to_writer_async, encode_to_string,
+    encode_url_safe_reader_to_writer_async,
 };
 use criterion::{criterion_group, criterion_main, Criterion, Throughput};
 use memmap2::Mmap;
