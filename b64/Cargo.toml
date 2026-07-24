@@ -18,7 +18,7 @@ simd-neon = []
 default = []
 
 [dev-dependencies]
-criterion = "0.5"
+criterion = { version = "0.5", features = ["async_tokio"] }
 memmap2 = "0.9"
 rand = "0.8"
 
