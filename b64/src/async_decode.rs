@@ -1,6 +1,6 @@
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
-use crate::decode::{decode_to_vec_mode_into, DecodeError, DecodeMode};
+use crate::decode::{Decoder, DecodeError, DecodeMode};
 
 /// Async Base64 decoding (lenient mode).
 pub async fn decode_reader_to_writer_async<R, W>(
@@ -24,6 +24,7 @@ where
     R: AsyncRead + Unpin,
     W: AsyncWrite + Unpin,
 {
+    let mut dec = Decoder::new_with_mode(mode);
     let mut buf = [0u8; 4096];
     let mut decoded = Vec::with_capacity(4096);
 
@@ -33,13 +34,19 @@ where
             break;
         }
 
-        // Decode chunk into caller buffer
-        let chunk = std::str::from_utf8(&buf[..n]).map_err(|_| DecodeError::InvalidByte(0, 0))?;
-        decode_to_vec_mode_into(chunk, mode, &mut decoded)?;
+        // Feed bytes into the persistent stateful decoder
+        dec.decode_block(&buf[..n], &mut decoded)?;
 
-        // Write decoded bytes
+        if !decoded.is_empty() {
+            writer.write_all(&decoded).await.map_err(DecodeError::Io)?;
+            decoded.clear();
+        }
+    }
+
+    // Finalize after stream ends
+    dec.finalize(&mut decoded)?;
+    if !decoded.is_empty() {
         writer.write_all(&decoded).await.map_err(DecodeError::Io)?;
-        decoded.clear();
     }
 
     Ok(())
