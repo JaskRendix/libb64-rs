@@ -8,8 +8,8 @@ use memmap2::Mmap;
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Write};
 use std::path::Path;
-use tokio::runtime::Runtime;
 use tokio::io::{BufReader as AsyncBufReader, BufWriter as AsyncBufWriter};
+use tokio::runtime::Runtime;
 
 const FILE_SIZE: usize = 18_000_000;
 
