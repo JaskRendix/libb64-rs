@@ -1,5 +1,6 @@
 use b64::{
-    encode_reader_to_writer_async, encode_url_safe_reader_to_writer_async,
+    encode_reader_to_writer_async,
+    encode_url_safe_reader_to_writer_async,
 };
 use std::io::Cursor;
 
@@ -21,15 +22,19 @@ async fn async_encode_roundtrip() {
 async fn async_encode_url_safe_variant() {
     // Bytes that produce '+' and '/' in standard base64
     let input = &[0xFB, 0xEF, 0xBE, 0xFF, 0xAA];
-    
+
     let mut reader_std = Cursor::new(input.to_vec());
     let mut encoded_std = Vec::new();
-    encode_reader_to_writer_async(&mut reader_std, &mut encoded_std, None).await.unwrap();
+    encode_reader_to_writer_async(&mut reader_std, &mut encoded_std, None)
+        .await
+        .unwrap();
     let std_str = String::from_utf8(encoded_std).unwrap();
 
     let mut reader_url = Cursor::new(input.to_vec());
     let mut encoded_url = Vec::new();
-    encode_url_safe_reader_to_writer_async(&mut reader_url, &mut encoded_url, None).await.unwrap();
+    encode_url_safe_reader_to_writer_async(&mut reader_url, &mut encoded_url, None)
+        .await
+        .unwrap();
     let url_str = String::from_utf8(encoded_url).unwrap();
 
     // Verify URL-safe substitution rules (- and _)
@@ -49,10 +54,10 @@ async fn async_encode_with_line_wrapping() {
         .unwrap();
 
     let encoded_str = String::from_utf8(encoded).unwrap();
-    
+
     // Ensure newlines are injected
     assert!(encoded_str.contains('\n'));
-    
+
     // Roundtrip verification to guarantee wrapper compliance doesn't break decoders
     let decoded = b64::decode_to_vec(&encoded_str).unwrap();
     assert_eq!(decoded, input);
