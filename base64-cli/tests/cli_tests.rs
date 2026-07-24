@@ -543,4 +543,3 @@ fn encode_empty_file_to_file() {
 
     assert_eq!(encoded, "");
 }
-
