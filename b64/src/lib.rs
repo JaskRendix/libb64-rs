@@ -4,11 +4,6 @@ pub mod decode;
 pub mod encode;
 pub mod parallel;
 
-#[cfg(all(target_arch = "x86_64", feature = "simd-avx2"))]
-pub use parallel::parallel_avx2;
-
-pub use parallel::parallel_scalar;
-
 pub use crate::decode::{
     decode_reader_to_writer, decode_reader_to_writer_mode, decode_to_vec, decode_to_vec_into,
     decode_to_vec_mode, decode_to_vec_mode_into, DecodeError, DecodeIoError, DecodeMode,
