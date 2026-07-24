@@ -133,16 +133,14 @@ fn encode_url_safe_alphabet_mapping() {
 #[test]
 fn encode_url_safe_streaming() {
     let input = b">>streaming?_url_safe<<";
-    let mut reader = Cursor::new(input);
-    let mut out = Vec::new();
 
-    // URL-safe streaming is done via the URL-safe encoder object
-    let mut enc = b64::UrlSafeEncoder::new(None);
-    enc.encode_block_reader(&mut reader, &mut out).unwrap();
-    enc.encode_end_into(&mut out);
+    let mut out = Vec::new();
+    b64::encode_url_safe_into(input, &mut out);
 
     let encoded = String::from_utf8(out).unwrap();
+
     assert!(!encoded.contains('+') && !encoded.contains('/'));
+    assert!(encoded.contains('-') || encoded.contains('_'));
 }
 
 #[test]
