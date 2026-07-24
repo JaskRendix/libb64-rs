@@ -32,12 +32,10 @@ fn encode_wrapped_8() {
 
     let output = String::from_utf8(out).unwrap();
 
-    // Every line must be <= 8 chars
     for line in output.trim_end().split('\n') {
         assert!(line.len() <= 8);
     }
 
-    // And decoding must still work
     let decoded = decode_to_vec(&output.replace('\n', "")).unwrap();
     assert_eq!(decoded, input);
 }
@@ -96,7 +94,6 @@ fn encode_padding_cases() {
 fn encode_into_basic() {
     let mut out = Vec::new();
     b64::encode_into(b"hello world", &mut out);
-
     assert_eq!(std::str::from_utf8(&out).unwrap(), "aGVsbG8gd29ybGQ=");
 }
 
@@ -104,7 +101,6 @@ fn encode_into_basic() {
 fn encode_url_safe_into_basic() {
     let mut out = Vec::new();
     b64::encode_url_safe_into(b"hello world", &mut out);
-
     assert_eq!(std::str::from_utf8(&out).unwrap(), "aGVsbG8gd29ybGQ=");
 }
 
@@ -121,10 +117,13 @@ fn encode_into_wrap() {
 
 #[test]
 fn encode_url_safe_alphabet_mapping() {
-    // Bytes that produce '+' and '/' in standard base64 (e.g., 0xFB, 0xEF, 0xBE)
     let data = &[0xFB, 0xEF, 0xBE];
+
     let std_res = encode_to_string(data);
-    let url_res = encode_url_safe_to_string(data);
+
+    let mut url_out = Vec::new();
+    b64::encode_url_safe_into(data, &mut url_out);
+    let url_res = String::from_utf8(url_out).unwrap();
 
     assert!(std_res.contains('+') || std_res.contains('/'));
     assert!(!url_res.contains('+') && !url_res.contains('/'));
@@ -137,7 +136,10 @@ fn encode_url_safe_streaming() {
     let mut reader = Cursor::new(input);
     let mut out = Vec::new();
 
-    encode_url_safe_reader_to_writer(&mut reader, &mut out, None).unwrap();
+    // URL-safe streaming is done via the URL-safe encoder object
+    let mut enc = b64::UrlSafeEncoder::new(None);
+    enc.encode_block_reader(&mut reader, &mut out).unwrap();
+    enc.encode_end_into(&mut out);
 
     let encoded = String::from_utf8(out).unwrap();
     assert!(!encoded.contains('+') && !encoded.contains('/'));
