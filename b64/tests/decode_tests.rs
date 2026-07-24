@@ -131,3 +131,21 @@ fn decode_into_url_safe() {
 
     assert_eq!(out, b"hello world");
 }
+
+#[test]
+fn decode_url_safe_variants() {
+    // Standard: ">>Hello?_World<<" -> URL-safe uses '-' and '_'
+    let url_safe_encoded = "Pj5IZWxsbz9fV29ybGQ8PD4="; 
+    let decoded = decode_to_vec(url_safe_encoded).unwrap();
+    assert_eq!(decoded, b">>Hello?_World<<");
+}
+
+#[test]
+fn strict_mode_rejects_invalid_length() {
+    let mut out = Vec::new();
+    // 3 characters instead of a multiple of 4 without padding
+    let r = b64::decode_to_vec_mode_into("aGVs", &mut out, b64::DecodeMode::Strict);
+    // Wait, "aGVs" is 4 chars. Let's use a non-multiple length like "aGV"
+    let r_bad = b64::decode_to_vec_mode_into("aGV", b64::DecodeMode::Strict, &mut out);
+    assert!(r_bad.is_err());
+}
