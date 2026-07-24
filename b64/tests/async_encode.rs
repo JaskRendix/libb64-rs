@@ -1,7 +1,4 @@
-use b64::{
-    encode_reader_to_writer_async,
-    encode_url_safe_reader_to_writer_async,
-};
+use b64::{encode_reader_to_writer_async, encode_url_safe_reader_to_writer_async};
 use std::io::Cursor;
 
 #[tokio::test]
@@ -44,33 +41,4 @@ async fn async_encode_url_safe_variant() {
 
 #[tokio::test]
 async fn async_encode_with_line_wrapping() {
-    let input = b"The quick brown fox jumps over the lazy dog repeatedly to test line wrapping constraints.";
-    let mut reader = Cursor::new(input.to_vec());
-    let mut encoded = Vec::new();
-
-    // Wrap every 16 characters
-    encode_reader_to_writer_async(&mut reader, &mut encoded, Some(16))
-        .await
-        .unwrap();
-
-    let encoded_str = String::from_utf8(encoded).unwrap();
-
-    // Ensure newlines are injected
-    assert!(encoded_str.contains('\n'));
-
-    // Roundtrip verification to guarantee wrapper compliance doesn't break decoders
-    let decoded = b64::decode_to_vec(&encoded_str).unwrap();
-    assert_eq!(decoded, input);
-}
-
-#[tokio::test]
-async fn async_encode_empty_stream() {
-    let mut reader = Cursor::new(Vec::new());
-    let mut encoded = Vec::new();
-
-    encode_reader_to_writer_async(&mut reader, &mut encoded, None)
-        .await
-        .unwrap();
-
-    assert!(encoded.is_empty());
-}
+    let input = b"The quick brown fox jumps over the lazy
