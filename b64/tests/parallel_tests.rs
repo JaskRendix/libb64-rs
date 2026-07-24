@@ -235,18 +235,20 @@ fn parallel_url_safe_roundtrip() {
 
 #[test]
 fn strict_mode_rejects_whitespace() {
+    use b64::decode::{decode_to_vec_mode, DecodeMode};
+
     let input = "SG VsbG8="; // contains a space
     let lenient_res = decode_to_vec_mode(input, DecodeMode::Lenient);
     let strict_res = decode_to_vec_mode(input, DecodeMode::Strict);
-    
+
     assert!(lenient_res.is_ok());
     assert!(strict_res.is_err());
 }
 
 #[tokio::test]
 async fn test_async_pipelines() {
-    use crate::async_encode::encode_reader_to_writer_async;
-    use crate::async_decode::decode_reader_to_writer_async;
+    use b64::async_decode::decode_reader_to_writer_async;
+    use b64::async_encode::encode_reader_to_writer_async;
 
     let data = b"Async tokio stream roundtrip test data over buffer limits!";
     let mut cursor_enc = &data[..];
