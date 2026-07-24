@@ -509,3 +509,38 @@ fn decode_ignore_garbage() {
         .success()
         .stdout("hello world");
 }
+
+#[test]
+fn decode_quiet_suppresses_parallel_errors() {
+    let mut cmd = Command::cargo_bin("base64-cli").unwrap();
+
+    cmd.arg("decode")
+        .arg("--parallel")
+        .arg("--quiet")
+        .write_stdin("### invalid parallel ###")
+        .assert()
+        .failure()
+        .stderr("");
+}
+
+#[test]
+fn encode_empty_file_to_file() {
+    let input = NamedTempFile::new().unwrap();
+    let output = NamedTempFile::new().unwrap();
+
+    let mut cmd = Command::cargo_bin("base64-cli").unwrap();
+    cmd.arg("encode")
+        .arg("--input")
+        .arg(input.path())
+        .arg("--output")
+        .arg(output.path())
+        .assert()
+        .success();
+
+    let mut encoded = String::new();
+    let mut out_file = File::open(output.path()).unwrap();
+    out_file.read_to_string(&mut encoded).unwrap();
+
+    assert_eq!(encoded, "");
+}
+
