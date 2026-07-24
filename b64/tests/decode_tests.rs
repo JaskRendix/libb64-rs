@@ -134,10 +134,10 @@ fn decode_into_url_safe() {
 
 #[test]
 fn decode_url_safe_variants() {
-    // Standard: ">>Hello?_World<<" -> URL-safe uses '-' and '_'
+    // Standard: ">>Hello?_World<<>" -> matches the actual output bytes of this vector
     let url_safe_encoded = "Pj5IZWxsbz9fV29ybGQ8PD4=";
     let decoded = decode_to_vec(url_safe_encoded).unwrap();
-    assert_eq!(decoded, b">>Hello?_World<<");
+    assert_eq!(decoded, b">>Hello?_World<<>");
 }
 
 #[test]
