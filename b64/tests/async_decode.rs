@@ -1,6 +1,4 @@
-use b64::{
-    decode_reader_to_writer_async, decode_reader_to_writer_mode_async, DecodeMode,
-};
+use b64::{decode_reader_to_writer_async, decode_reader_to_writer_mode_async, DecodeMode};
 use std::io::Cursor;
 
 #[tokio::test]
@@ -37,12 +35,8 @@ async fn async_decode_strict_mode_whitespace_rejection() {
     let mut reader = Cursor::new(encoded.as_bytes());
     let mut decoded = Vec::new();
 
-    let result = decode_reader_to_writer_mode_async(
-        &mut reader,
-        &mut decoded,
-        DecodeMode::Strict,
-    )
-    .await;
+    let result =
+        decode_reader_to_writer_mode_async(&mut reader, &mut decoded, DecodeMode::Strict).await;
 
     assert!(result.is_err());
 }
