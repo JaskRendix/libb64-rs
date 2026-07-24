@@ -1,7 +1,7 @@
 use b64::{
     decode_parallel, decode_reader_to_writer, decode_reader_to_writer_async, decode_to_vec,
     encode_parallel, encode_reader_to_writer, encode_reader_to_writer_async, encode_to_string,
-    encode_url_safe_reader_to_writer_async,
+    encode_url_safe_reader_to_writer_async, encode_url_safe_into,
 };
 use criterion::{criterion_group, criterion_main, Criterion, Throughput};
 use memmap2::Mmap;
@@ -9,6 +9,7 @@ use std::fs::File;
 use std::io::{BufReader, BufWriter, Write};
 use std::path::Path;
 use tokio::runtime::Runtime;
+use tokio::io::{BufReader as AsyncBufReader, BufWriter as AsyncBufWriter};
 
 const FILE_SIZE: usize = 18_000_000;
 
@@ -232,12 +233,12 @@ fn bench_url_safe(c: &mut Criterion) {
     group.bench_function("encode_url_safe_into", |b| {
         b.iter(|| {
             let mut out = Vec::new();
-            b64::encode_url_safe_into(&data, &mut out);
+            encode_url_safe_into(&data, &mut out);
         });
     });
 
     let mut encoded = Vec::new();
-    b64::encode_url_safe_into(&data, &mut encoded);
+    encode_url_safe_into(&data, &mut encoded);
     let encoded_str = String::from_utf8(encoded).unwrap();
 
     group.bench_function("decode_url_safe_to_vec", |b| {
@@ -262,8 +263,11 @@ fn bench_async_streaming(c: &mut Criterion) {
 
     group.bench_function("async_encode_file", |b| {
         b.to_async(&rt).iter(|| async {
-            let mut input = File::open("bigfile.bin").unwrap();
-            let mut output = Vec::new();
+            let file = File::open("bigfile.bin").unwrap();
+            let mut input = AsyncBufReader::new(file);
+
+            let mut output = AsyncBufWriter::new(Vec::new());
+
             encode_reader_to_writer_async(&mut input, &mut output, None)
                 .await
                 .unwrap();
@@ -272,14 +276,18 @@ fn bench_async_streaming(c: &mut Criterion) {
 
     group.bench_function("async_decode_file", |b| {
         b.to_async(&rt).iter(|| async {
-            let mut input = File::open("bigfile.bin").unwrap();
-            let mut encoded = Vec::new();
+            let file = File::open("bigfile.bin").unwrap();
+            let mut input = AsyncBufReader::new(file);
+
+            let mut encoded = AsyncBufWriter::new(Vec::new());
             encode_reader_to_writer_async(&mut input, &mut encoded, None)
                 .await
                 .unwrap();
 
-            let mut decoded = Vec::new();
-            decode_reader_to_writer_async(&mut &encoded[..], &mut decoded)
+            let encoded_vec = encoded.into_inner();
+
+            let mut decoded = AsyncBufWriter::new(Vec::new());
+            decode_reader_to_writer_async(&mut &encoded_vec[..], &mut decoded)
                 .await
                 .unwrap();
         });
@@ -301,8 +309,11 @@ fn bench_async_url_safe(c: &mut Criterion) {
 
     group.bench_function("async_encode_url_safe_file", |b| {
         b.to_async(&rt).iter(|| async {
-            let mut input = File::open("bigfile.bin").unwrap();
-            let mut output = Vec::new();
+            let file = File::open("bigfile.bin").unwrap();
+            let mut input = AsyncBufReader::new(file);
+
+            let mut output = AsyncBufWriter::new(Vec::new());
+
             encode_url_safe_reader_to_writer_async(&mut input, &mut output, None)
                 .await
                 .unwrap();
@@ -311,14 +322,18 @@ fn bench_async_url_safe(c: &mut Criterion) {
 
     group.bench_function("async_decode_url_safe_file", |b| {
         b.to_async(&rt).iter(|| async {
-            let mut input = File::open("bigfile.bin").unwrap();
-            let mut encoded = Vec::new();
+            let file = File::open("bigfile.bin").unwrap();
+            let mut input = AsyncBufReader::new(file);
+
+            let mut encoded = AsyncBufWriter::new(Vec::new());
             encode_url_safe_reader_to_writer_async(&mut input, &mut encoded, None)
                 .await
                 .unwrap();
 
-            let mut decoded = Vec::new();
-            decode_reader_to_writer_async(&mut &encoded[..], &mut decoded)
+            let encoded_vec = encoded.into_inner();
+
+            let mut decoded = AsyncBufWriter::new(Vec::new());
+            decode_reader_to_writer_async(&mut &encoded_vec[..], &mut decoded)
                 .await
                 .unwrap();
         });
