@@ -1,12 +1,14 @@
 use b64::{
-    decode_parallel, decode_reader_to_writer, decode_to_vec, encode_parallel,
-    encode_reader_to_writer, encode_to_string,
+    decode_parallel, decode_reader_to_writer, decode_reader_to_writer_async, decode_to_vec,
+    encode_parallel, encode_reader_to_writer, encode_reader_to_writer_async,
+    encode_url_safe_reader_to_writer_async, encode_to_string,
 };
 use criterion::{criterion_group, criterion_main, Criterion, Throughput};
 use memmap2::Mmap;
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Write};
 use std::path::Path;
+use tokio::runtime::Runtime;
 
 const FILE_SIZE: usize = 18_000_000;
 
@@ -168,9 +170,6 @@ fn bench_parallel(c: &mut Criterion) {
     group.finish();
 }
 
-//
-// New: encode + decode roundtrip (in‑memory)
-//
 fn bench_encode_decode_roundtrip(c: &mut Criterion) {
     let data = vec![42u8; FILE_SIZE];
 
@@ -187,9 +186,6 @@ fn bench_encode_decode_roundtrip(c: &mut Criterion) {
     group.finish();
 }
 
-//
-// New: parallel encode + decode roundtrip
-//
 fn bench_parallel_roundtrip(c: &mut Criterion) {
     let data = vec![42u8; FILE_SIZE];
 
@@ -206,9 +202,6 @@ fn bench_parallel_roundtrip(c: &mut Criterion) {
     group.finish();
 }
 
-//
-// New: scalar vs parallel comparison
-//
 fn bench_scalar_vs_parallel(c: &mut Criterion) {
     let data = vec![42u8; FILE_SIZE];
 
@@ -224,6 +217,148 @@ fn bench_scalar_vs_parallel(c: &mut Criterion) {
     group.bench_function("parallel_encode", |b| {
         b.iter(|| {
             let _ = encode_parallel(&data);
+        });
+    });
+
+    group.finish();
+}
+
+fn bench_url_safe(c: &mut Criterion) {
+    let data = vec![42u8; FILE_SIZE];
+
+    let mut group = c.benchmark_group("url_safe");
+    group.throughput(Throughput::Bytes(FILE_SIZE as u64));
+
+    group.bench_function("encode_url_safe_into", |b| {
+        b.iter(|| {
+            let mut out = Vec::new();
+            b64::encode_url_safe_into(&data, &mut out);
+        });
+    });
+
+    let mut encoded = Vec::new();
+    b64::encode_url_safe_into(&data, &mut encoded);
+    let encoded_str = String::from_utf8(encoded).unwrap();
+
+    group.bench_function("decode_url_safe_to_vec", |b| {
+        b.iter(|| {
+            let _ = decode_to_vec(&encoded_str).unwrap();
+        });
+    });
+
+    group.finish();
+}
+
+//
+// Async benchmarks: file streaming encode/decode
+//
+fn bench_async_streaming(c: &mut Criterion) {
+    ensure_bigfile();
+
+    let rt = Runtime::new().unwrap();
+
+    let mut group = c.benchmark_group("async_streaming");
+    group.throughput(Throughput::Bytes(FILE_SIZE as u64));
+
+    group.bench_function("async_encode_file", |b| {
+        b.to_async(&rt).iter(|| async {
+            let mut input = File::open("bigfile.bin").unwrap();
+            let mut output = Vec::new();
+            encode_reader_to_writer_async(&mut input, &mut output, None)
+                .await
+                .unwrap();
+        });
+    });
+
+    group.bench_function("async_decode_file", |b| {
+        b.to_async(&rt).iter(|| async {
+            let mut input = File::open("bigfile.bin").unwrap();
+            let mut encoded = Vec::new();
+            encode_reader_to_writer_async(&mut input, &mut encoded, None)
+                .await
+                .unwrap();
+
+            let mut decoded = Vec::new();
+            decode_reader_to_writer_async(&mut &encoded[..], &mut decoded)
+                .await
+                .unwrap();
+        });
+    });
+
+    group.finish();
+}
+
+//
+// Async URL‑safe streaming benchmarks
+//
+fn bench_async_url_safe(c: &mut Criterion) {
+    ensure_bigfile();
+
+    let rt = Runtime::new().unwrap();
+
+    let mut group = c.benchmark_group("async_url_safe");
+    group.throughput(Throughput::Bytes(FILE_SIZE as u64));
+
+    group.bench_function("async_encode_url_safe_file", |b| {
+        b.to_async(&rt).iter(|| async {
+            let mut input = File::open("bigfile.bin").unwrap();
+            let mut output = Vec::new();
+            encode_url_safe_reader_to_writer_async(&mut input, &mut output, None)
+                .await
+                .unwrap();
+        });
+    });
+
+    group.bench_function("async_decode_url_safe_file", |b| {
+        b.to_async(&rt).iter(|| async {
+            let mut input = File::open("bigfile.bin").unwrap();
+            let mut encoded = Vec::new();
+            encode_url_safe_reader_to_writer_async(&mut input, &mut encoded, None)
+                .await
+                .unwrap();
+
+            let mut decoded = Vec::new();
+            decode_reader_to_writer_async(&mut &encoded[..], &mut decoded)
+                .await
+                .unwrap();
+        });
+    });
+
+    group.finish();
+}
+
+//
+// Combined encode/decode throughput dashboard
+//
+fn bench_throughput_dashboard(c: &mut Criterion) {
+    let data = vec![42u8; FILE_SIZE];
+    let encoded_scalar = encode_to_string(&data);
+    let encoded_parallel = encode_parallel(&data);
+
+    let mut group = c.benchmark_group("throughput_dashboard");
+    group.throughput(Throughput::Bytes(FILE_SIZE as u64));
+
+    group.bench_function("scalar_encode", |b| {
+        b.iter(|| {
+            let _ = encode_to_string(&data);
+        });
+    });
+
+    group.bench_function("scalar_decode", |b| {
+        b.iter(|| {
+            let _ = decode_to_vec(&encoded_scalar).unwrap();
+        });
+    });
+
+    group.bench_function("parallel_encode", |b| {
+        b.iter(|| {
+            let _ = encode_parallel(&data);
+        });
+    });
+
+    group.bench_function("parallel_decode", |b| {
+        b.iter(|| {
+            let _ = decode_parallel(&encoded_parallel).unwrap();
         });
     });
 
@@ -264,6 +399,10 @@ criterion_group!(
     bench_encode_decode_roundtrip,
     bench_parallel_roundtrip,
     bench_scalar_vs_parallel,
+    bench_url_safe,
+    bench_async_streaming,
+    bench_async_url_safe,
+    bench_throughput_dashboard,
     bench_encode_decode_loop,
 );
 
