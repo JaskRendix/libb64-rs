@@ -263,7 +263,8 @@ fn bench_async_streaming(c: &mut Criterion) {
 
     group.bench_function("async_encode_file", |b| {
         b.to_async(&rt).iter(|| async {
-            let file = File::open("bigfile.bin").unwrap();
+            // Changed from File::open(...).unwrap() to tokio::fs::File::open(...).await.unwrap()
+            let file = tokio::fs::File::open("bigfile.bin").await.unwrap();
             let mut input = AsyncBufReader::new(file);
 
             let mut output = AsyncBufWriter::new(Vec::new());
@@ -276,7 +277,7 @@ fn bench_async_streaming(c: &mut Criterion) {
 
     group.bench_function("async_decode_file", |b| {
         b.to_async(&rt).iter(|| async {
-            let file = File::open("bigfile.bin").unwrap();
+            let file = tokio::fs::File::open("bigfile.bin").await.unwrap();
             let mut input = AsyncBufReader::new(file);
 
             let mut encoded = AsyncBufWriter::new(Vec::new());
@@ -309,7 +310,7 @@ fn bench_async_url_safe(c: &mut Criterion) {
 
     group.bench_function("async_encode_url_safe_file", |b| {
         b.to_async(&rt).iter(|| async {
-            let file = File::open("bigfile.bin").unwrap();
+            let file = tokio::fs::File::open("bigfile.bin").await.unwrap();
             let mut input = AsyncBufReader::new(file);
 
             let mut output = AsyncBufWriter::new(Vec::new());
@@ -322,7 +323,7 @@ fn bench_async_url_safe(c: &mut Criterion) {
 
     group.bench_function("async_decode_url_safe_file", |b| {
         b.to_async(&rt).iter(|| async {
-            let file = File::open("bigfile.bin").unwrap();
+            let file = tokio::fs::File::open("bigfile.bin").await.unwrap();
             let mut input = AsyncBufReader::new(file);
 
             let mut encoded = AsyncBufWriter::new(Vec::new());
