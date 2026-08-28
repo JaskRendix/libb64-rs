@@ -121,11 +121,11 @@ impl Encoder {
 
     #[inline]
     fn write_break(&mut self, out: &mut String) {
-        if let Some(n) = self.chars_per_line {
-            if self.line_pos >= n {
-                out.push('\n');
-                self.line_pos = 0;
-            }
+        if let Some(n) = self.chars_per_line
+            && self.line_pos >= n
+        {
+            out.push('\n');
+            self.line_pos = 0;
         }
     }
 
@@ -134,11 +134,11 @@ impl Encoder {
     // ---------------------------------------------------------
     #[inline]
     fn push_byte_into(&mut self, out: &mut Vec<u8>, b: u8) {
-        if let Some(n) = self.chars_per_line {
-            if self.line_pos >= n {
-                out.push(b'\n');
-                self.line_pos = 0;
-            }
+        if let Some(n) = self.chars_per_line
+            && self.line_pos >= n
+        {
+            out.push(b'\n');
+            self.line_pos = 0;
         }
         out.push(b);
         self.line_pos += 1;

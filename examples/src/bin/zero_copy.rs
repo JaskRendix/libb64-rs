@@ -1,5 +1,5 @@
 use b64::{
-    decode_to_vec_into, decode_to_vec_mode_into, encode_into, encode_url_safe_into, DecodeMode,
+    DecodeMode, decode_to_vec_into, decode_to_vec_mode_into, encode_into, encode_url_safe_into,
 };
 
 fn main() {

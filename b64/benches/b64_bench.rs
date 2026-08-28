@@ -3,7 +3,7 @@ use b64::{
     encode_parallel, encode_reader_to_writer, encode_reader_to_writer_async, encode_to_string,
     encode_url_safe_into, encode_url_safe_reader_to_writer_async,
 };
-use criterion::{criterion_group, criterion_main, Criterion, Throughput};
+use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use memmap2::Mmap;
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Write};

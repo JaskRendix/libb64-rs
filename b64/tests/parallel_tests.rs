@@ -112,7 +112,7 @@ fn fuzz_random_roundtrip() {
 
     for _ in 0..10_000 {
         let len = rng.gen_range(0..10_000);
-        let data: Vec<u8> = (0..len).map(|_| rng.gen()).collect();
+        let data: Vec<u8> = (0..len).map(|_| rng.r#gen()).collect();
 
         let enc = encode_parallel(&data);
         let dec = decode_parallel(&enc).unwrap();
@@ -195,7 +195,7 @@ fn fuzz_invalid_inputs() {
         let len = rng.gen_range(1..200);
 
         // Generate raw random bytes
-        let bytes: Vec<u8> = (0..len).map(|_| rng.gen()).collect();
+        let bytes: Vec<u8> = (0..len).map(|_| rng.r#gen()).collect();
 
         // Convert to lossy UTF‑8 so the decoder always receives valid &str
         let s = String::from_utf8_lossy(&bytes).to_string();
@@ -235,7 +235,7 @@ fn parallel_url_safe_roundtrip() {
 
 #[test]
 fn strict_mode_rejects_whitespace() {
-    use b64::decode::{decode_to_vec_mode, DecodeMode};
+    use b64::decode::{DecodeMode, decode_to_vec_mode};
 
     let input = "SG VsbG8="; // contains a space
     let lenient_res = decode_to_vec_mode(input, DecodeMode::Lenient);

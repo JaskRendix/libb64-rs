@@ -1,4 +1,4 @@
-use b64::{decode_reader_to_writer_async, decode_reader_to_writer_mode_async, DecodeMode};
+use b64::{DecodeMode, decode_reader_to_writer_async, decode_reader_to_writer_mode_async};
 use std::io::Cursor;
 
 #[tokio::test]
